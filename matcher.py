@@ -48,16 +48,22 @@ def find_match_fowards(array, pattern, start=True):
     # supposed to mimic the regex expression "([32]*)([31]){x}([32]+)...([32]*)"
     # except returns the minumum match
     out = Match(pattern=pattern)
+    min_left = sum(pattern) + (len(pattern)-1)
     if start: #([32]*) match zero or more white or either
         candidate = []
-        n = 0
-        while n < len(array) and (n==0 or array[n-1] & WHITE):
-            out = find_match_fowards(array[n:], pattern, start=False)
+        i = 0
+        # account for whites at the beginning
+        while array[i] == WHITE and i < len(array):
+            candidate += [WHITE]
+            i += 1
+        # find recursive matches
+        while i <= (len(array) - min_left) and (i==0 or array[i-1] & WHITE):
+            out = find_match_fowards(array[i:], pattern, start=False)
             if out.is_match:
                 out.match = candidate + out.match
                 break
             candidate += [WHITE] # add another white
-            n += 1
+            i += 1
     elif not pattern:  # ([32]*) match end of array with zero or more whites
         candidate = [WHITE] * len(array)
         if fits(candidate, array):
@@ -65,23 +71,24 @@ def find_match_fowards(array, pattern, start=True):
     elif not array:
         return out
     else: # ([31]){x}([32]+) match the pattern object
-        candidate = [BLACK] * pattern[0]
+        p = pattern[0]
+        candidate = [BLACK] * p
         if fits(candidate, array): 
-            if len(array) == pattern[0] and len(pattern) == 1: # at end of array
+            if len(array) == p and len(pattern) == 1: # at end of array
                 return Match(candidate, pattern)
             # add at least one white
-            n = 1
-            while (n < len(array) - pattern[0] + 1) and (array[pattern[0]+n-1] & WHITE): 
+            i = 0
+            while (i <= len(array) - min_left) and (array[p+i] & WHITE): 
                 candidate += [WHITE]
-                out = find_match_fowards(array[pattern[0]+n:], pattern[1:], start=False)
+                out = find_match_fowards(array[p+i+1:], pattern[1:], start=False)
                 if out.is_match:
                     out.match = candidate + out.match
                     break   
-                n += 1
+                i += 1
     return out
 
 
-def find_match_backwards(array, pattern, start=True):
+def find_match_backwards(array, pattern):
     # returns the left-most match, constructed from the back
     # jumps backwards from the last placed black, and tries to 
     out = Match(pattern=pattern)
@@ -90,7 +97,7 @@ def find_match_backwards(array, pattern, start=True):
         if fits(candidate, array):
             return Match(candidate, pattern=pattern)
     elif not array:
-        return out
+        return out # no fit
     elif array[0] == WHITE:
         # strip whites at the beginning
         i = 0
@@ -110,43 +117,17 @@ def find_match_backwards(array, pattern, start=True):
         
         candidate = []
         candidate += [EITHER] * min_left
-        try: # find the last placed black
-            # min_length-1 <= idx_start <= len(array) - p 
-            idx_start =  min(listRightIndex(array, BLACK) - p + 1, len(array) - p)
-            if idx_start > min_left:
-                candidate += [WHITE] * (idx_start - min_left) # as many whites as possible
-                candidate += [BLACK] * p
-            else:
-                raise ValueError # this black might belong to another sequence
-        except ValueError:
-            idx_start = min_left + add_white
-            # make minimum sequence
-            candidate += [WHITE] * add_white + [BLACK] * p
-        candidate += [WHITE] * (len(array) - len(candidate)) # as many whites as needed at the end
-        
-        # first see if the whites need to change
-        for idx in range(min_left, idx_start): 
-            # find recursive matches
-            if fits(candidate[idx:], array[idx:]):
-                out = find_match_backwards(array[:idx], pattern[:-1])
+        candidate += [WHITE] * add_white
+        candidate += [BLACK] * p
+        candidate += [WHITE] * (len(array) - len(candidate)) # whites at the end 
+        for idx in range(min_left+add_white, len(array) - p + 1):
+            if fits(candidate[idx-add_white:], array[idx-add_white:]):
+                out = find_match_backwards(array[:idx-add_white], pattern[:-1])
                 if out.is_match:
-                    out.match = out.match + candidate[idx:]
+                    out.match = out.match + candidate[idx-add_white:]
                     break 
-            candidate[idx] = EITHER # this can't be a white
-        
-        if not out.is_match: # this works by itself but is slow
             # shift pattern across and leave hard thinking for the next call
-            for idx in range(min_left, len(array) - p + 1):
-                candidate = []
-                candidate += [EITHER] * (idx - add_white)
-                candidate += [WHITE] * add_white
-                candidate += [BLACK] * p
-                candidate += [WHITE] * (len(array) - len(candidate)) # whites at the end 
-                if fits(candidate, array):
-                    out = find_match_backwards(array[:idx-add_white], pattern[:-1])
-                    if out.is_match:
-                        out.match = out.match + candidate[idx-add_white:]
-                        break 
+            candidate = [EITHER] + candidate[:-1]
             
     return out
 

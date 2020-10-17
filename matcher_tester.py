@@ -15,8 +15,8 @@ from matcher import find_match_backwards, find_match_fowards
 
 class TestMatcher(unittest.TestCase):
     def setUp(self):
-        self.matcher = find_match_backwards
-        #self.matcher = find_match_fowards
+        #self.matcher = find_match_backwards
+        self.matcher = find_match_fowards
 
     def array_10(self):
         runs = (3, 2, 1)
@@ -59,14 +59,13 @@ class TestMatcher(unittest.TestCase):
 
     def lancaster_example(self):
         #http://scc-forge.lancaster.ac.uk/open/nonogram/ls-fast
+        run = (1, 1, 5)
         s = "---#--         -      # " # broken segment
 
         sym_map = {"-": WHITE, "#": BLACK, " ": EITHER}
         reverse_map = {WHITE:"-", BLACK:"#", EITHER:"?"}
 
         row = [sym_map[x] for x in s]
-
-        run = (1, 1, 5)
 
         m = self.matcher(row, run).match
         m = ''.join([reverse_map[x] for x in m])

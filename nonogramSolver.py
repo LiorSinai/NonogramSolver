@@ -47,14 +47,19 @@ class Nonogram():
     def num_solutions(self):
         return len(self.solutions)
 
+    @property
+    def progress(self):
+        "the fraction of cells completed (correct or not)"
+        return 1 - sum(row.count(EITHER) for row in self.grid)/(self.n_rows * self.n_cols)
+
     def set_grid(self, grid):
         self.grid = [row[:] for row in grid]
 
 
     def make_box(self, symbols="x#.?"):
         "For display purposes. Includes instructions and grid"
-        row_max_length = len(max(runs_row, key=len))
-        col_max_length = len(max(runs_col, key=len))
+        row_max_length = len(max(self.runs_row, key=len))
+        col_max_length = len(max(self.runs_col, key=len))
 
         box = []
 
@@ -116,29 +121,8 @@ class Nonogram():
         sequence, _ = self._get_sequence(arr)
         return sequence == list(target)
 
-    def is_valid_partial_columns(self, grid, end_row):
-        columns = list(zip(*grid[:end_row + 1]))
-        for j, col in enumerate(columns):
-            if not self.is_valid_partial(col, self.runs_col[j]):
-                return False
-        return True
-    
-    def is_valid_partial(self, arr, target):   
-        "do placed black squares follow the rules so far?"
-        sequence, _ = self._get_sequence(arr)
-        
-        m = len(sequence)
-        if m == 0:
-            return True # no black squares placed so far
-        elif m > len(target):
-            return False # too many gaps
-        elif m == 1:
-            return sequence[0] <= target[0] 
-        else:
-            return sequence[:m-1] == list(target[:m-1]) and sequence[m-1] <= target[m-1] 
-
     def solve(self):
-        "Do constraint propogation before exhaustive search. Based on the RosettaCode code"
+        "Do constraint propagation before exhaustive search. Based on the RosettaCode code"
         def initialise(length, runs):
             """If any sequence x in the run is greater than the number of free whites, some these values will be fixed"""
             # The first run of fix_row() or fix_col() will find this anyway. But this is faster
@@ -238,11 +222,11 @@ class Nonogram():
         print("summary: {} possible rows and {} possible columns".format(sum([len(x) for x in possible_rows]), 
                                                                         sum([len(x) for x in possible_cols])))
 
-        # rows, columns for constraint propogation to be applied
+        # rows, columns for constraint propagation to be applied
         rows_to_edit = set(range(self.n_rows))
         columns_to_edit = set(range(self.n_cols))
 
-        sweeps = 2 # includie initialising
+        sweeps = 2 # include initialising
         while columns_to_edit:
             # constraint propagation
             for j in columns_to_edit:
@@ -257,9 +241,9 @@ class Nonogram():
             
             rows_to_edit = set()
             
-        print("\nconstraint propogation done in {} rounds".format(sweeps))
+        print("\nconstraint propagation done in {} rounds".format(sweeps))
 
-        solution_found = all(self.grid[i][j] in (1, 2) for j in range(self.n_cols) for i in range(self.n_rows))
+        solution_found = all(self.grid[i][j] in (1, 2) for j in range(self.n_cols) for i in range(self.n_rows)) # might be incorrect
         if solution_found:
             print("Solution is unique") # but could be incorrect!
         else:
@@ -300,22 +284,33 @@ class Nonogram():
         
 
     def solve_fast(self):
-        def initialise(length, runs):
-            """If any sequence x in the run is greater than the number of free whites, some these values will be fixed"""
-            # The first run of fix_row() or fix_col() will find this anyway. But this is faster
-            arr = [EITHER] * length
-            free_whites = length - sum(runs) - (len(runs) - 1)  # remaining whites to place
-            j = 0 # current position
-            for x in runs:
-                if x > free_whites: # backfill s 
-                    for c in range(j + free_whites, j + x): 
-                        arr[c] = BLACK 
-                if (free_whites == 0) and (j + x < length):
-                    arr[j + x] = WHITE # can place a white too
-                j += x + 1
-            return arr
+        def simple_fuller(arr, runs):
+            """ fill in gaps and whites ending sequences. The overlap algorithm might miss these"""
+            i, k = 0, 0
+            on_black = 0
+            allowed = arr[:]
+            min_length = runs[0]
+            for i in range(len(arr)):
+                if arr[i] == WHITE:
+                    if on_black > 0:
+                        k += 1 # move to the next pattern
+                    on_black = 0
+                elif arr[i] == BLACK:
+                    on_black += 1
+                else: # arr[i] == EITHER
+                    if (0 < on_black < runs[k]): # this must be part of this sequence
+                        allowed[i] = BLACK
+                        on_black += 1
+                    elif on_black == 0 and k > 0 and i >0 and arr[i-1] == BLACK: # this must be a white ending a sequence
+                        allowed[i] = WHITE    
+                    elif k >= len(runs): # only whites left
+                        allowed[i] = WHITE         
+                    else:
+                        break # too many unknowns
+            return allowed
 
         def changer_sequence(vec):
+            """ convert to ascending sequence """
             counter = int(vec[0] == BLACK)
             prev = vec[0]
             sequence = [counter]
@@ -326,11 +321,8 @@ class Nonogram():
             return sequence
 
         def overlap(a, b):
-            # convert to ascending sequence  
-            seq_a = changer_sequence(a)
-            seq_b = changer_sequence(b)
             out = []
-            for x, y in zip(seq_a, seq_b):
+            for x, y in zip(changer_sequence(a), changer_sequence(b)):
                 if x==y:
                     if (x+2) % 2 == 0:
                         out.append(WHITE) 
@@ -339,41 +331,45 @@ class Nonogram():
                 else:
                     out.append(EITHER)
             return out
+
+        def left_rightmost_overlap(arr, runs):
+            """Returns the overlap between the left-most and right-most fitting sequences"""
+            left = find_match(arr, runs)
+            right = find_match(arr[::-1], runs[::-1])
+            if left.is_match and right.is_match:
+                allowed = overlap(left.match, right.match[::-1])
+            else:
+                allowed = arr[:]
+            return allowed
                 
         def fix_row(i):
-            # find the left-most sequence that fits
-            # minimum is with one zero
             row = self.grid[i]
-            left = find_match(row, self.runs_row[i])
-            right = find_match(row[::-1], self.runs_row[i][::-1])
-            if left.is_match and right.is_match:
-                allowed = overlap(left.match, right.match[::-1])
-                for j in range(self.n_cols):
-                    if row[j] != allowed[j] and allowed[j]!=EITHER:
-                        columns_to_edit.add(j)
-                        self.grid[i]= allowed
+            allowed1 = left_rightmost_overlap(row, self.runs_row[i])
+            allowed2 = simple_fuller(row, self.runs_row[i])
+            allowed3 = simple_fuller(row[::-1], self.runs_row[i][::-1])[::-1] # going from right
+            allowed = [x & y & z for x, y, z in zip(allowed1, allowed2, allowed3)]
+            for j in range(self.n_cols):
+                if row[j] != allowed[j] and allowed[j]!=EITHER:
+                    columns_to_edit.add(j)
+                    self.grid[i]= allowed
         
         def fix_col(j):
-            # find the left-most sequence that fits
-            # minimum is with one zero
             col = [self.grid[i][j] for i in range(self.n_rows)]
-            left = find_match(col, self.runs_col[j])
-            right = find_match(col[::-1], self.runs_col[j][::-1])
-            if left.is_match and right.is_match:
-                allowed = overlap(left.match, right.match[::-1])
-                for i in range(self.n_rows):
-                    if col[i] != allowed[i] and allowed[i]!=EITHER:
-                        rows_to_edit.add(i)
-                        self.grid[i][j] = allowed[i]
+            allowed1 = left_rightmost_overlap(col, self.runs_col[j])
+            allowed2 = simple_fuller(col, self.runs_col[j])
+            allowed3 = simple_fuller(col[::-1], self.runs_col[j][::-1])[::-1] # going from right
+            allowed = [x & y & z for x, y, z in zip(allowed1, allowed2, allowed3)]
+            for i in range(self.n_rows):
+                if col[i] != allowed[i] and allowed[i]!=EITHER:
+                    rows_to_edit.add(i)
+                    self.grid[i][j] = allowed[i]
             
-        # rows, columns for constraint propogation to be applied
+        # rows, columns for constraint propagation to be applied
         rows_to_edit = set()
         columns_to_edit = set(range(self.n_cols))
 
-        # for i in range(self.n_rows):
-        #     fix_row(i)
         for i in range(self.n_rows):
-           self.grid[i] = initialise(self.n_cols, self.runs_row[i])
+            fix_row(i)
 
         rounds = 1 # includie initialise
         while columns_to_edit:
@@ -385,7 +381,8 @@ class Nonogram():
             for i in rows_to_edit:
                 fix_row(i)
             rows_to_edit = set()
-        print("\nconstraint propogation done in {} rounds".format(rounds))
+        print("\nconstraint propagation done in {} rounds".format(rounds))
+
 
 
 def encode_puzzle(filename, runs_row, runs_col, description="") -> None:
@@ -411,10 +408,22 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram"):
     ax.imshow(grid, cmap=cmap, norm=norm, aspect='equal')
 
     # set grid lines. Majors must not overlap with minors
+    # intervals = 10
+    # step_major = max(min(n_rows, n_rows) // intervals, 1) # space out numbers for larger grid
+    # if step_major % 2 == 1:
+    #     step_major += 1 # always have an even step
+    step_major = 5
+    if min(n_rows, n_rows) // step_major < step_major:
+            step_major = 1
+    else:
+        while min(n_rows, n_rows) // step_major > step_major:
+            step_major += step_major
+    
+
     ax.set_xticks([x-0.5 for x in list(range(1, n_cols + 1))], minor=True)
-    ax.set_xticks(list(range(0, n_cols)), minor=False)
+    ax.set_xticks(list(range(0, n_cols, step_major)), minor=False)
     ax.set_yticks([x-0.5 for x in list(range(1, n_rows + 1))], minor=True)
-    ax.set_yticks(list(range(0, n_rows)), minor=False) 
+    ax.set_yticks(list(range(0, n_rows, step_major)), minor=False) 
     plt.grid(which="minor", linewidth=1.1, color="k", alpha=0.7)
 
     if save:
@@ -429,8 +438,8 @@ if __name__ == '__main__':
     runs_col = [(1,),(1,),(2,),(4,),(7,),(9,),(2, 8),(1, 8),(8,),(1, 9),(2, 7),(3, 4),(6, 4),(8, 5),(1, 11),(1, 7),(8,),(1, 4, 8),(6, 8),(4, 7),(2, 4),(1, 4),(5,),(1, 4),(1,5),(7,),(5,),(3,),(1,),(1,)]
 
     # elephant
-    #runs_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
-    #runs_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
+    runs_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
+    runs_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
 
     # # ## chess board, multiple solutions
     #runs_row = [(1,), (1,), (1,)]
@@ -440,7 +449,7 @@ if __name__ == '__main__':
     #runs_row = [(3,),(1,),(1,),(1,1),(1,),(1,1,4,1),(2,1,1,1,4),(1,1,1,1,1,1),(1,1,1,1,1),(2,1,1,1,1),(1,4,2,1,1,1),(1,3,1,4,1)]
     #runs_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
 
-    # # aeroplane -> solve fast doesn't work??
+    # # aeroplane -> solve fast doesn't work. https://www.youtube.com/watch?v=MZQDDzzRBvI
     #runs_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
     #runs_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
 
@@ -452,7 +461,7 @@ if __name__ == '__main__':
     two_strip   = [(1,2,1,2,1,1,2),(1,1,1,2,1,1,1)]
     #runs_row = five_strip1 + three_strip + five_strip2 + three_strip + two_strip
     #runs_col = [(3,2,3,2,1),(1,1,2,1,1,2,1)] + [(1,)*7 for _ in range(15)] + [(2,1,3,1,3)]
-    ## small but constraint propogation alone won't solve 
+    ## small but constraint propagation alone won't solve 
     #runs_row = [(4,),(4,),(1,),(1,1),(1,)] # not possible to solve with this solver
     #runs_col = [(1,),(2,1),(2,1),(2,1),(1,1)] # not possible to solve with this solver
 
@@ -469,7 +478,7 @@ if __name__ == '__main__':
     end_time = time.time()
 
     game.show_grid(show_instructions=True, symbols="x#.?")
-    print(game.is_complete())
+    print(game.is_complete(), "{:.2f}%%".format(game.progress*100))
     print("time taken: {:.5f}s".format(end_time - start_time))
 
     plot_nonogram(game.grid)
@@ -489,6 +498,7 @@ if __name__ == '__main__':
                 game = Nonogram(runs_row, runs_col)
                 game.solve_fast()
                 game.show_grid(show_instructions=True, symbols="x#.?")
+                print(game.is_complete(), "{:.2f}%%".format(game.progress*100))
 
                 plot_nonogram(game.grid)
 
