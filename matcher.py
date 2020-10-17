@@ -14,7 +14,6 @@ EITHER = 3  # = 11 in binary
 def fits(a, b):
     return all(x & y for x, y in zip(a, b))
 
-
 class Match():
     def __init__(self, match=None, pattern=None, span=None):
         self.match = match
@@ -38,7 +37,14 @@ def minimum_sequence(pattern):
         arr += [WHITE] + [BLACK]  * n_black
     return arr[1:]
 
-def find_match(array, pattern, start=True):
+
+def find_match(array, pattern):
+    return find_match_backwards(array, pattern)
+    #return find_match_fowards(array, pattern)
+
+
+def find_match_fowards(array, pattern, start=True):
+    # forward algorithm -> goes very slowly if there is a black much further down, because finds all possibilities that can fit infront
     # supposed to mimic the regex expression "([32]*)([31]){x}([32]+)...([32]*)"
     # except returns the minumum match
     out = Match(pattern=pattern)
@@ -46,7 +52,7 @@ def find_match(array, pattern, start=True):
         candidate = []
         n = 0
         while n < len(array) and (n==0 or array[n-1] & WHITE):
-            out = find_match(array[n:], pattern, start=False)
+            out = find_match_fowards(array[n:], pattern, start=False)
             if out.is_match:
                 out.match = candidate + out.match
                 break
@@ -67,7 +73,7 @@ def find_match(array, pattern, start=True):
             n = 1
             while (n < len(array) - pattern[0] + 1) and (array[pattern[0]+n-1] & WHITE): 
                 candidate += [WHITE]
-                out = find_match(array[pattern[0]+n:], pattern[1:], start=False)
+                out = find_match_fowards(array[pattern[0]+n:], pattern[1:], start=False)
                 if out.is_match:
                     out.match = candidate + out.match
                     break   
@@ -75,49 +81,93 @@ def find_match(array, pattern, start=True):
     return out
 
 
+def find_match_backwards(array, pattern, start=True):
+    # returns the left-most match, constructed from the back
+    # jumps backwards from the last placed black, and tries to 
+    out = Match(pattern=pattern)
+    if not pattern:
+        candidate = [WHITE] * len(array)
+        if fits(candidate, array):
+            return Match(candidate, pattern=pattern)
+    elif not array:
+        return out
+    elif array[0] == WHITE:
+        # strip whites at the beginning
+        i = 0
+        while array[i] == WHITE:
+            i += 1
+        candidate = [WHITE] * i
+        out = find_match_fowards(array[i:], pattern)
+        if out.is_match:
+            out.match = candidate + out.match 
+    else:
+        min_length = sum(pattern) + (len(pattern) - 1) 
+        p = pattern[-1]
+        min_left = 0 if len(pattern) == 1 else min_length - p - 1  # =sum(pattern[:-1]) + ((len(pattern)-1)-1)
+        if min_left < -1:
+            return out # not possible to match
+        add_white = int(min_left > 0)
+        
+        candidate = []
+        candidate += [EITHER] * min_left
+        try: # find the last placed black
+            # min_length-1 <= idx_start <= len(array) - p 
+            idx_start =  min(listRightIndex(array, BLACK) - p + 1, len(array) - p)
+            if idx_start > min_left:
+                candidate += [WHITE] * (idx_start - min_left) # as many whites as possible
+                candidate += [BLACK] * p
+            else:
+                raise ValueError # this black might belong to another sequence
+        except ValueError:
+            idx_start = min_left + add_white
+            # make minimum sequence
+            candidate += [WHITE] * add_white + [BLACK] * p
+        candidate += [WHITE] * (len(array) - len(candidate)) # as many whites as needed at the end
+        
+        # first see if the whites need to change
+        for idx in range(min_left, idx_start): 
+            # find recursive matches
+            if fits(candidate[idx:], array[idx:]):
+                out = find_match_backwards(array[:idx], pattern[:-1])
+                if out.is_match:
+                    out.match = out.match + candidate[idx:]
+                    break 
+            candidate[idx] = EITHER # this can't be a white
+        
+        if not out.is_match: # this works by itself but is slow
+            # shift pattern across and leave hard thinking for the next call
+            for idx in range(min_left, len(array) - p + 1):
+                candidate = []
+                candidate += [EITHER] * (idx - add_white)
+                candidate += [WHITE] * add_white
+                candidate += [BLACK] * p
+                candidate += [WHITE] * (len(array) - len(candidate)) # whites at the end 
+                if fits(candidate, array):
+                    out = find_match_backwards(array[:idx-add_white], pattern[:-1])
+                    if out.is_match:
+                        out.match = out.match + candidate[idx-add_white:]
+                        break 
+            
+    return out
 
-if __name__ == '__main__':
-    run = [3, 2, 1]
 
-    tests = [
-        ([3] * 10 , [BLACK]*3 + [WHITE] + [BLACK] * 2 + [WHITE] + [BLACK]*1 + [WHITE] *  2),
-        ([BLACK]*4 + [3]*6 , None), 
-        ([BLACK]*3 + [WHITE]*5 + [BLACK] * 2 , None),
-        ([WHITE] * 4 + [BLACK] *3 + [3] * 3, None),
-        ([3, 3, BLACK, 3, 3, 3, BLACK, BLACK, 3, BLACK], 
-         [BLACK, BLACK, BLACK, WHITE, WHITE, WHITE, BLACK, BLACK, WHITE, BLACK]),
-         ([3, 3, 3, 3, BLACK, 3, BLACK, BLACK, 3, BLACK], 
-         [WHITE, WHITE, BLACK, BLACK, BLACK, WHITE, BLACK, BLACK, WHITE, BLACK])
-    ]
-    
-    
+if __name__ == '__main__':    
+    # for row, result in tests:
+    #     s = ''.join(map(str, row))
+    #     pattern = "([3]*)"
+    #     for x in runs:
+    #         pattern += "[31]{" + str(x) + "}([32]+)"
+    #     pattern += "([3]*)"
+    #     m1 = re.search(pattern,s)
+    #     print(m1)
 
-    for row, result in tests:
-        s = ''.join(map(str, row))
-        pattern = "([3]*)"
-        for x in run:
-            pattern += "[31]{" + str(x) + "}([32]+)"
-        pattern += "([3]*)"
-        m1 = re.search(pattern,s)
-        print(m1)
+    runs = (6, 7)
+    row = [WHITE] + [BLACK] *5 + [EITHER] * 2 + [BLACK] * 7
+    result = [WHITE] + [BLACK] *6 + [WHITE] + [BLACK] * 7
+    m2 = find_match(row, runs)
+    print(m2.match == result, m2.match)
+    print("")
 
-    for row, result in tests:
-        m2 = find_match(row, run, start=True)
-        print(m2.match == result, m2.match)
-
-
-    # right most
-    row = [3] * 10
-    result = [WHITE] *  2 + [BLACK]*3 + [WHITE] + [BLACK] * 2 + [WHITE] + [BLACK]*1 
-    m2 = find_match(row[::-1], run[::-1], start=True)
-    print(m2.match[::-1] == result, m2.match[::-1] )
-
-    row = [3, 3, 3, 3, 3, 3, 3, BLACK, 3, 3]
-    result = [WHITE] *  2 + [BLACK]*3 + [WHITE] + [BLACK] * 2 + [WHITE] + [BLACK]*1 
-    m2 = find_match(row[::-1], run[::-1], start=True)
-    print(m2.match[::-1] == result, m2.match[::-1] )
-    m2 = find_match(row, run, start=True)
-    print("----", m2.match)
 
     #http://scc-forge.lancaster.ac.uk/open/nonogram/ls-fast
     s = "---#--         -      # "
@@ -125,8 +175,10 @@ if __name__ == '__main__':
     reverse_map = {WHITE:"-", BLACK:"#", EITHER:"?"}
     row = [sym_map[x] for x in s]
     run = (1, 1, 5)
-    print(s)
+    print("original:        ", s)
     left_most = find_match(row, run).match
-    print(''.join([reverse_map[x] for x in left_most]))
+    left_most = ''.join([reverse_map[x] for x in left_most])
+    print("left-most match: ", left_most, left_most=="---#--#-----------#####-")
     right_most = find_match(row[::-1], run[::-1]).match[::-1]
-    print(''.join([reverse_map[x] for x in right_most]))
+    right_most = ''.join([reverse_map[x] for x in right_most])
+    print("right-most match:", right_most, right_most=="---#-------------#-#####")
