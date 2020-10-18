@@ -313,7 +313,7 @@ class Nonogram():
                                                                         sum([len(x) for x in possible_cols])))
         
 
-    def solve_fast_(self, grid):
+    def solve_fast_(self, grid, rows_to_edit=None, columns_to_edit=None):
         def simple_filler(arr, runs):
             """ fill in black gaps and whites ending sequences. The overlap algorithm might miss these"""
             k = 0  # index for runs
@@ -420,13 +420,16 @@ class Nonogram():
                     rows_to_edit.add(i)
                     grid[i][j] = allowed[i]
         
-        # rows, columns for constraint propagation to be applied
-        rows_to_edit = set()
-        columns_to_edit = set(range(self.n_cols)) 
+        if rows_to_edit is None and columns_to_edit is None:
+            # rows, columns for constraint propagation to be applied
+            rows_to_edit = set()
+            columns_to_edit = set(range(self.n_cols)) 
 
-        for i in range(self.n_rows): # initialise
-            fix_row(i)
-        sweeps = 1 # includie initialise
+            for i in range(self.n_rows): # initialise
+                fix_row(i)
+            sweeps = 1 # include initialise
+        else:
+            sweeps = 0
 
         while columns_to_edit:
             sweeps += 2 # for columns and rows
@@ -437,13 +440,33 @@ class Nonogram():
             for i in rows_to_edit:
                 fix_row(i)
             rows_to_edit = set()
-        print("\nconstraint propagation done in {} sweeps".format(sweeps))
-                           
+        #print("\nconstraint propagation done in {} sweeps".format(sweeps))
+
+        if not self.is_valid_partial_grid(grid):
+            return grid
+
+        if not self.is_complete(grid):
+            rankings = rank_guesses(grid, self.n_rows, self.n_cols)
+            if rankings:
+                rank, ij = rankings.pop(0) # only guess with the highest ranked cell
+                i, j = ij
+                # make a guess
+                self.guesses += 1 # only the first one is a guess, the second time we know it is right
+                print(self.guesses, end=", ")
+                for cell in [BLACK, WHITE]:
+                    grid_next = [row[:] for row in grid]
+                    grid_next[i][j] = cell
+                    grid_next = self.solve_fast_(grid_next, {i}, {j})
+                    if self.is_complete(grid_next):
+                        grid = grid_next
+                        break      
         return grid
 
     def solve_fast(self):
         grid = [row[:] for row in self.grid]
+        print("guess no: 0", end =', ')
         grid = self.solve_fast_(grid)
+        print("")
         self.set_grid(grid)
 
 
