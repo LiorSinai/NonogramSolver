@@ -338,6 +338,42 @@ class Nonogram():
                         break # too many unknowns
             return allowed
 
+        def simple_spacer(arr, runs):
+            """ fill in whites e.g. whites out of range"""
+            allowed = arr[:]
+            i, k = -1, 0  # index for arr, runs
+            on_black = 0
+            run_start = -1
+            while i < len(arr) - 1:
+                i += 1
+                if arr[i] == WHITE or arr[i] == EITHER:
+                    if on_black > 0:
+                        if (run_start == 0 or arr[run_start-1] == WHITE) and \
+                           (i == len(arr) - 1 or arr[i+1] == WHITE):
+                            k += 1  # move to the next pattern only if complete
+                        else: 
+                            break # this run is incomplete
+                    on_black = 0
+                    run_start = -1
+                elif arr[i] == BLACK:
+                    if on_black == 0:
+                        run_start = i
+                    on_black += 1
+                if k >= len(runs):
+                    break
+                if arr[i] == EITHER:
+                    if i == 0 or arr[i-1] == BLACK:
+                        gap_start = i
+                        while i < len(arr) and arr[i] == EITHER:
+                            i += 1
+                        if i - gap_start > runs[k] and (i <= len(arr)  or arr[i+1] == WHITE) and k > 0:
+                            #print("at line 372")
+                            for j in range(gap_start, i-runs[k]-1):
+                                allowed[j] = WHITE # out of range
+  
+            return allowed
+
+
         def changer_sequence(vec):
             """ convert to ascending sequence """
             counter = int(vec[0] == BLACK)
@@ -389,9 +425,11 @@ class Nonogram():
                         
         def apply_strategies(array, runs):
             allowed = [EITHER] * len(array)
-            allowed = [x & y for x, y in zip(allowed, left_rightmost_overlap(array, runs))]
             allowed = [x & y for x, y in zip(allowed, simple_filler(array, runs))]
             allowed = [x & y for x, y in zip(allowed, simple_filler(array[::-1], runs[::-1])[::-1])] # going from right
+            allowed = [x & y for x, y in zip(allowed, simple_spacer(array, runs))]
+            allowed = [x & y for x, y in zip(allowed, simple_spacer(array[::-1], runs[::-1])[::-1])]
+            allowed = [x & y for x, y in zip(allowed, left_rightmost_overlap(array, runs))]
             return allowed
 
         def fix_row(i):
@@ -420,15 +458,13 @@ class Nonogram():
                     rows_to_edit.add(i)
                     grid[i][j] = allowed[i]
         
-        sweeps = 0
         # rows, columns for constraint propagation to be applied
-        if not rows_to_edit and not columns_to_edit:
-            rows_to_edit = set()
-            columns_to_edit = set(range(self.n_cols)) 
+        rows_to_edit = set()
+        columns_to_edit = set(range(self.n_cols)) 
 
-            for i in range(self.n_rows): # initialise
-                fix_row(i)
-            sweeps += 1 # includie initialise
+        for i in range(self.n_rows): # initialise
+            fix_row(i)
+        sweeps = 1 # includie initialise
 
         while columns_to_edit:
             sweeps += 2 # for columns and rows
