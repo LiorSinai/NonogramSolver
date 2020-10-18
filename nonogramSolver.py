@@ -27,6 +27,7 @@ import matplotlib.colors
 
 from integerPartitions import integer_partitions, unique_perm_partitions
 from matcher import Match, find_match
+from guesser import rank_guesses
 
 BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
@@ -41,7 +42,7 @@ class Nonogram():
         self.grid = [[EITHER] * self.n_cols for i in range(self.n_rows)]
         
         self.solutions = []        
-        self.calls = 0
+        self.guesses = 0
 
     @property
     def num_solutions(self):
@@ -52,11 +53,15 @@ class Nonogram():
         "the fraction of cells completed (correct or not)"
         return 1 - sum(row.count(EITHER) for row in self.grid)/(self.n_rows * self.n_cols)
 
+    def get_col(self, grid, j):
+        return [grid[i][j] for i in range(len(grid))]
+
     def set_grid(self, grid):
         self.grid = [row[:] for row in grid]
 
+    def make_box(self, grid=None, symbols="x#.?"):
+        grid = self.grid if grid is None else grid
 
-    def make_box(self, symbols="x#.?"):
         "For display purposes. Includes instructions and grid"
         row_max_length = len(max(self.runs_row, key=len))
         col_max_length = len(max(self.runs_col, key=len))
@@ -72,31 +77,40 @@ class Nonogram():
                     row[row_max_length + j] = str(run[::-1][col_max_length - i - 1])
             box.append(row)
         # make row instructions
-        for i, row in enumerate(self.grid):
+        for i, row in enumerate(grid):
             run = self.runs_row[i]
             row = ["-"] * (row_max_length - len(run)) + list(map(str, run)) + [symbols[x] for x in row]
             box.append(row)
         
         return box
 
-    def show_grid(self, show_instructions=True, symbols="x#.?"):
+    def show_grid(self, grid=None, show_instructions=True, symbols="x#.?"):
+        grid = self.grid if grid is None else grid
         if show_instructions:
-            grid = self.make_box(symbols) 
+            grid_ = self.make_box(grid, symbols) 
         else:
-            grid = []
-            for row in self.grid:
-                grid.append([symbols[x] for x in row]) # x-> something is wrong, #->black, .->white, ?->was never assigned
-        for row in grid:
+            grid_ = []
+            for row in grid:
+                grid_.append([symbols[x] for x in row]) # x-> something is wrong, #->black, .->white, ?->was never assigned
+        for row in grid_:
             for symbol in row:
                 print("{:2}".format(symbol), end='')
             print("")
 
 
     def is_complete(self, grid=None):
+        grid = self.grid if grid is None else grid
+
+        for arr, run in zip(grid + list(zip(*grid)), self.runs_row + self.runs_col):
+            if not self.is_valid_line(arr, run):
+                return False    
+        return True
+
+    def is_valid_partial_grid(self, grid=None):
         if grid is None:
             grid = self.grid
         for arr, run in zip(grid + list(zip(*grid)), self.runs_row + self.runs_col):
-            if not self.is_valid_line(arr, run):
+            if not self.is_valid_partial(arr, run):
                 return False    
         return True
 
@@ -123,17 +137,15 @@ class Nonogram():
 
     def is_valid_partial(self, arr, target):   
         "do placed black squares follow the rules so far?"
-        sequence, _ = self._get_sequence(arr)
-        
-        m = len(sequence)
-        if m == 0:
-            return True # no black squares placed so far
-        elif m > len(target):
-            return False # too many gaps
-        elif m == 1:
-            return sequence[0] <= target[0] 
-        else:
-            return sequence[:m-1] == list(target[:m-1]) and sequence[m-1] <= target[m-1] 
+
+        if all([x!= EITHER for x in arr]): # make sure there are no gaps!
+            sequence, _ = self._get_sequence(arr)
+            if len(sequence) == len(target): 
+                return all([x <= y for x, y in zip(sequence, target)])
+            else:
+                return False 
+        return True # not sure if valid or not so return
+
 
     def solve(self):
         "Do constraint propagation before exhaustive search. Based on the RosettaCode code"
@@ -219,6 +231,7 @@ class Nonogram():
                     rows_to_edit.add(i)
                     self.grid[i][j] = allowed[i]
 
+        #save=True
         #ax = plot_nonogram(game.grid, save=save, filename="solving_sweep_0")
         for i in range(self.n_rows):
            self.grid[i] = initialise(self.n_cols, self.runs_row[i])
@@ -226,7 +239,7 @@ class Nonogram():
             col = initialise(self.n_rows, self.runs_col[j])
             for i in range(self.n_rows):
                 self.grid[i][j] = col[i]
-        #plot_nonogram(game.grid, ax=ax, save=save, filename="solving_sweep_1")
+        #plot_nonogram(game.grid, ax=ax, save=save, filename="solving_sweep_2")
 
         possible_rows = [generate_sequences(self.grid[i], self.runs_row[i]) for i in range(self.n_rows)]
         possible_cols = []
@@ -302,8 +315,8 @@ class Nonogram():
 
     def solve_fast_(self, grid):
         def simple_filler(arr, runs):
-            """ fill in gaps and whites ending sequences. The overlap algorithm might miss these"""
-            k = 0
+            """ fill in black gaps and whites ending sequences. The overlap algorithm might miss these"""
+            k = 0  # index for runs
             on_black = 0
             allowed = arr[:]
             for i in range(len(arr)):
@@ -406,17 +419,19 @@ class Nonogram():
                 if col[i] != allowed[i] and allowed[i]!=EITHER:
                     rows_to_edit.add(i)
                     grid[i][j] = allowed[i]
-            
+        
+        sweeps = 0
         # rows, columns for constraint propagation to be applied
-        rows_to_edit = set()
-        columns_to_edit = set(range(self.n_cols))
+        if not rows_to_edit and not columns_to_edit:
+            rows_to_edit = set()
+            columns_to_edit = set(range(self.n_cols)) 
 
-        for i in range(self.n_rows):
-            fix_row(i)
+            for i in range(self.n_rows): # initialise
+                fix_row(i)
+            sweeps += 1 # includie initialise
 
-        rounds = 1 # includie initialise
         while columns_to_edit:
-            rounds += 1
+            sweeps += 2 # for columns and rows
             #constraint propagation
             for j in columns_to_edit:
                 fix_col(j)
@@ -424,8 +439,8 @@ class Nonogram():
             for i in rows_to_edit:
                 fix_row(i)
             rows_to_edit = set()
-        print("\nconstraint propagation done in {} rounds".format(rounds))
-
+        print("\nconstraint propagation done in {} sweeps".format(sweeps))
+                           
         return grid
 
     def solve_fast(self):
@@ -468,7 +483,6 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram"):
         while min(n_rows, n_rows) // step_major > step_major:
             step_major += step_major
     
-
     ax.set_xticks([x-0.5 for x in list(range(1, n_cols + 1))], minor=True)
     ax.set_xticks(list(range(0, n_cols, step_major)), minor=False)
     ax.set_yticks([x-0.5 for x in list(range(1, n_rows + 1))], minor=True)
@@ -529,6 +543,7 @@ if __name__ == '__main__':
     game.show_grid(show_instructions=True, symbols="x#.?")
     print(game.is_complete(), "{:.2f}%%".format(game.progress*100))
     print("time taken: {:.5f}s".format(end_time - start_time))
+    print("solved with {} guesses".format(game.guesses))
 
     plot_nonogram(game.grid)
 

@@ -90,7 +90,6 @@ def find_match_fowards(array, pattern, start=True):
 
 def find_match_backwards(array, pattern):
     # returns the left-most match, constructed from the back
-    # jumps backwards from the last placed black, and tries to 
     out = Match(pattern=pattern)
     if not pattern:
         candidate = [WHITE] * len(array)
@@ -104,7 +103,7 @@ def find_match_backwards(array, pattern):
         while i < len(array) and array[i] == WHITE:
             i += 1
         candidate = [WHITE] * i
-        out = find_match_fowards(array[i:], pattern)
+        out = find_match_backwards(array[i:], pattern)
         if out.is_match:
             out.match = candidate + out.match 
     else:
@@ -120,15 +119,26 @@ def find_match_backwards(array, pattern):
         candidate += [WHITE] * add_white
         candidate += [BLACK] * p
         candidate += [WHITE] * (len(array) - len(candidate)) # whites at the end 
+
+        fitter = [x & y for x, y in zip(candidate, array)]
+
         for idx in range(min_left+add_white, len(array) - p + 1):
-            if fits(candidate[idx-add_white:], array[idx-add_white:]):
+            if idx - 1 >= 0:
+                fitter[idx - 1] = array[idx - 1] & WHITE
+            if idx - add_white - 1 >= 0:
+                fitter[idx - add_white -1] = array[idx - add_white -1] & EITHER # this will overwrite the previous step if add_white=0
+            fitter[idx] =  array[idx] & BLACK
+            fitter[idx + p-1] = (array[idx + p - 1] & BLACK)
+            fitter[idx] = fitter[idx] # dummy step to avoid werid optimisation errors
+            #if fits(fitter[idx-add_white:], array[:idx-add_white]):
+
+            if all(fitter[idx-add_white:]):
                 out = find_match_backwards(array[:idx-add_white], pattern[:-1])
                 if out.is_match:
                     out.match = out.match + candidate[idx-add_white:]
                     break 
             # shift pattern across and leave hard thinking for the next call
             candidate = [EITHER] + candidate[:-1]
-            
     return out
 
 
