@@ -49,7 +49,13 @@ def find_match_fowards(array, pattern, start=True):
     # except returns the minumum match
     out = Match(pattern=pattern)
     min_left = sum(pattern) + (len(pattern)-1)
-    if start: #([32]*) match zero or more white or either
+    if not pattern:  # ([32]*) match end of array with zero or more whites
+        candidate = [WHITE] * len(array)
+        if fits(candidate, array):
+            return Match(candidate, pattern=pattern)
+    elif not array:
+        return out
+    elif start: #([32]*) match zero or more white or either
         candidate = []
         i = 0
         # account for whites at the beginning
@@ -64,12 +70,6 @@ def find_match_fowards(array, pattern, start=True):
                 break
             candidate += [WHITE] # add another white
             i += 1
-    elif not pattern:  # ([32]*) match end of array with zero or more whites
-        candidate = [WHITE] * len(array)
-        if fits(candidate, array):
-            return Match(candidate, pattern=pattern)
-    elif not array:
-        return out
     else: # ([31]){x}([32]+) match the pattern object
         p = pattern[0]
         candidate = [BLACK] * p
@@ -101,7 +101,7 @@ def find_match_backwards(array, pattern):
     elif array[0] == WHITE:
         # strip whites at the beginning
         i = 0
-        while array[i] == WHITE:
+        while i < len(array) and array[i] == WHITE:
             i += 1
         candidate = [WHITE] * i
         out = find_match_fowards(array[i:], pattern)

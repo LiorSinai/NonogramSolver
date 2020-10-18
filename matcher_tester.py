@@ -15,8 +15,8 @@ from matcher import find_match_backwards, find_match_fowards
 
 class TestMatcher(unittest.TestCase):
     def setUp(self):
-        #self.matcher = find_match_backwards
-        self.matcher = find_match_fowards
+        self.matcher = find_match_backwards
+        #self.matcher = find_match_fowards
 
     def array_10(self):
         runs = (3, 2, 1)
