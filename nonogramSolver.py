@@ -420,15 +420,13 @@ class Nonogram():
                     rows_to_edit.add(i)
                     grid[i][j] = allowed[i]
         
-        sweeps = 0
         # rows, columns for constraint propagation to be applied
-        if not rows_to_edit and not columns_to_edit:
-            rows_to_edit = set()
-            columns_to_edit = set(range(self.n_cols)) 
+        rows_to_edit = set()
+        columns_to_edit = set(range(self.n_cols)) 
 
-            for i in range(self.n_rows): # initialise
-                fix_row(i)
-            sweeps += 1 # includie initialise
+        for i in range(self.n_rows): # initialise
+            fix_row(i)
+        sweeps = 1 # includie initialise
 
         while columns_to_edit:
             sweeps += 2 # for columns and rows
