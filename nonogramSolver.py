@@ -121,6 +121,20 @@ class Nonogram():
         sequence, _ = self._get_sequence(arr)
         return sequence == list(target)
 
+    def is_valid_partial(self, arr, target):   
+        "do placed black squares follow the rules so far?"
+        sequence, _ = self._get_sequence(arr)
+        
+        m = len(sequence)
+        if m == 0:
+            return True # no black squares placed so far
+        elif m > len(target):
+            return False # too many gaps
+        elif m == 1:
+            return sequence[0] <= target[0] 
+        else:
+            return sequence[:m-1] == list(target[:m-1]) and sequence[m-1] <= target[m-1] 
+
     def solve(self):
         "Do constraint propagation before exhaustive search. Based on the RosettaCode code"
         def initialise(length, runs):
@@ -159,6 +173,9 @@ class Nonogram():
             n = len(runs)
             sequence_whites = [0] + [1] * (n - 1) + [0] # at least one white in between each
             free_whites = length - sum(runs) - (n - 1)  # remaining whites to place
+
+            if free_whites > 30:
+                return []
             
             possible = [] # all possible permutations of the run
 
@@ -283,13 +300,12 @@ class Nonogram():
                                                                         sum([len(x) for x in possible_cols])))
         
 
-    def solve_fast(self):
-        def simple_fuller(arr, runs):
+    def solve_fast_(self, grid):
+        def simple_filler(arr, runs):
             """ fill in gaps and whites ending sequences. The overlap algorithm might miss these"""
-            i, k = 0, 0
+            k = 0
             on_black = 0
             allowed = arr[:]
-            min_length = runs[0]
             for i in range(len(arr)):
                 if arr[i] == WHITE:
                     if on_black > 0:
@@ -298,13 +314,13 @@ class Nonogram():
                 elif arr[i] == BLACK:
                     on_black += 1
                 else: # arr[i] == EITHER
-                    if (0 < on_black < runs[k]): # this must be part of this sequence
+                    if k >= len(runs):
+                        break
+                    elif (0 < on_black < runs[k]): # this must be part of this sequence
                         allowed[i] = BLACK
                         on_black += 1
                     elif on_black == 0 and k > 0 and i >0 and arr[i-1] == BLACK: # this must be a white ending a sequence
-                        allowed[i] = WHITE    
-                    elif k >= len(runs): # only whites left
-                        allowed[i] = WHITE         
+                        allowed[i] = WHITE      
                     else:
                         break # too many unknowns
             return allowed
@@ -341,28 +357,55 @@ class Nonogram():
             else:
                 allowed = arr[:]
             return allowed
-                
+
+        def splitter(arr, runs):
+            """split rows at the max element. Then the strategies can be applied to each division. 
+            This helps more with speed than with solving, because it speeds up the matching algorithm."""
+            if not arr or not runs:
+                return [(arr, runs)]
+            runs_, positions = self._get_sequence(arr)
+            split_value = max(runs)
+            split_idx = runs.index(split_value)
+            if runs.count(split_value) == 1 and split_value in runs_:
+                    idx = runs_.index(split_value)
+                    i0, i1 = positions[idx]
+                    i0, i1 = max(i0-1, 0), min(i1 + 1, len(arr)) # add whites on either side
+                    return splitter(arr[:i0], runs[:split_idx]) + [(arr[i0:i1+1], (runs[split_idx],))] + splitter(arr[i1+1:], runs[split_idx+1:])
+            else:
+                return [(arr, runs)]
+                        
+        def apply_strategies(array, runs):
+            allowed = [EITHER] * len(array)
+            allowed = [x & y for x, y in zip(allowed, left_rightmost_overlap(array, runs))]
+            allowed = [x & y for x, y in zip(allowed, simple_filler(array, runs))]
+            allowed = [x & y for x, y in zip(allowed, simple_filler(array[::-1], runs[::-1])[::-1])] # going from right
+            return allowed
+
         def fix_row(i):
-            row = self.grid[i]
-            allowed1 = left_rightmost_overlap(row, self.runs_row[i])
-            allowed2 = simple_fuller(row, self.runs_row[i])
-            allowed3 = simple_fuller(row[::-1], self.runs_row[i][::-1])[::-1] # going from right
-            allowed = [x & y & z for x, y, z in zip(allowed1, allowed2, allowed3)]
+            row = grid[i]
+            allowed = []
+            for split in splitter(row, self.runs_row[i]):
+                segment, runs_segment = split
+                if not segment:
+                    continue
+                allowed.extend(apply_strategies(segment, runs_segment))
             for j in range(self.n_cols):
                 if row[j] != allowed[j] and allowed[j]!=EITHER:
                     columns_to_edit.add(j)
-                    self.grid[i]= allowed
+                    grid[i]= allowed
         
         def fix_col(j):
-            col = [self.grid[i][j] for i in range(self.n_rows)]
-            allowed1 = left_rightmost_overlap(col, self.runs_col[j])
-            allowed2 = simple_fuller(col, self.runs_col[j])
-            allowed3 = simple_fuller(col[::-1], self.runs_col[j][::-1])[::-1] # going from right
-            allowed = [x & y & z for x, y, z in zip(allowed1, allowed2, allowed3)]
+            col = [grid[i][j] for i in range(self.n_rows)]
+            allowed = []
+            for split in splitter(col, self.runs_col[j]):
+                segment, runs_segment = split
+                if not segment:
+                    continue
+                allowed.extend(apply_strategies(segment, runs_segment))
             for i in range(self.n_rows):
                 if col[i] != allowed[i] and allowed[i]!=EITHER:
                     rows_to_edit.add(i)
-                    self.grid[i][j] = allowed[i]
+                    grid[i][j] = allowed[i]
             
         # rows, columns for constraint propagation to be applied
         rows_to_edit = set()
@@ -383,6 +426,12 @@ class Nonogram():
             rows_to_edit = set()
         print("\nconstraint propagation done in {} rounds".format(rounds))
 
+        return grid
+
+    def solve_fast(self):
+        grid = [row[:] for row in self.grid]
+        grid = self.solve_fast_(grid)
+        self.set_grid(grid)
 
 
 def encode_puzzle(filename, runs_row, runs_col, description="") -> None:
@@ -400,7 +449,7 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram"):
     n_rows, n_cols = len(grid), len(grid[0])
 
     # custom color map
-    cmap = matplotlib.colors.ListedColormap(['black', 'white', 'blue'])
+    cmap = matplotlib.colors.ListedColormap(['black', 'white', 'cornflowerblue'])
     boundaries = [0, BLACK+0.01, WHITE+0.01, EITHER]
     norm = matplotlib.colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
@@ -434,24 +483,24 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram"):
 
 if __name__ == '__main__':
     # the wikipedia W
-    runs_row = [(8, 7, 5, 7),(5, 4, 3, 3),(3, 3, 2, 3),(4, 3, 2, 2),(3, 3, 2, 2),(3, 4, 2, 2),(4, 5, 2),(3, 5, 1),(4, 3, 2),(3, 4, 2),(4, 4, 2),(3, 6, 2),(3, 2, 3, 1),(4, 3, 4, 2),(3, 2, 3, 2),(6, 5),(4, 5),(3, 3),(3,3), (1, 1)]
-    runs_col = [(1,),(1,),(2,),(4,),(7,),(9,),(2, 8),(1, 8),(8,),(1, 9),(2, 7),(3, 4),(6, 4),(8, 5),(1, 11),(1, 7),(8,),(1, 4, 8),(6, 8),(4, 7),(2, 4),(1, 4),(5,),(1, 4),(1,5),(7,),(5,),(3,),(1,),(1,)]
+    r_row = [(8, 7, 5, 7),(5, 4, 3, 3),(3, 3, 2, 3),(4, 3, 2, 2),(3, 3, 2, 2),(3, 4, 2, 2),(4, 5, 2),(3, 5, 1),(4, 3, 2),(3, 4, 2),(4, 4, 2),(3, 6, 2),(3, 2, 3, 1),(4, 3, 4, 2),(3, 2, 3, 2),(6, 5),(4, 5),(3, 3),(3,3), (1, 1)]
+    r_col = [(1,),(1,),(2,),(4,),(7,),(9,),(2, 8),(1, 8),(8,),(1, 9),(2, 7),(3, 4),(6, 4),(8, 5),(1, 11),(1, 7),(8,),(1, 4, 8),(6, 8),(4, 7),(2, 4),(1, 4),(5,),(1, 4),(1,5),(7,),(5,),(3,),(1,),(1,)]
 
     # elephant
-    runs_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
-    runs_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
+    r_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
+    r_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
 
     # # ## chess board, multiple solutions
-    #runs_row = [(1,), (1,), (1,)]
-    #runs_col = [(1,), (1,), (1,)]
+    #r_row = [(1,), (1,), (1,)]
+    #r_col = [(1,), (1,), (1,)]
 
     # # Bonus
-    #runs_row = [(3,),(1,),(1,),(1,1),(1,),(1,1,4,1),(2,1,1,1,4),(1,1,1,1,1,1),(1,1,1,1,1),(2,1,1,1,1),(1,4,2,1,1,1),(1,3,1,4,1)]
-    #runs_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
+    #r_row = [(3,),(1,),(1,),(1,1),(1,),(1,1,4,1),(2,1,1,1,4),(1,1,1,1,1,1),(1,1,1,1,1),(2,1,1,1,1),(1,4,2,1,1,1),(1,3,1,4,1)]
+    #r_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
 
     # # aeroplane -> solve fast doesn't work. https://www.youtube.com/watch?v=MZQDDzzRBvI
-    #runs_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
-    #runs_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
+    r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
+    r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
 
     ## https://www.researchgate.net/publication/290264363_On_the_Difficulty_of_Nonograms
     ## Batenburg construction -> requires 120 sweeps
@@ -459,13 +508,13 @@ if __name__ == '__main__':
     three_strip = [(1,), (18,), (1,1)]
     five_strip2 = [(1,2,1,2,1,1,2),(1,1,1,2,1,1,1),(1,),(2,1,1,2,1,2,1),(1,1,1,2,1,1,1)]
     two_strip   = [(1,2,1,2,1,1,2),(1,1,1,2,1,1,1)]
-    #runs_row = five_strip1 + three_strip + five_strip2 + three_strip + two_strip
-    #runs_col = [(3,2,3,2,1),(1,1,2,1,1,2,1)] + [(1,)*7 for _ in range(15)] + [(2,1,3,1,3)]
+    #r_row = five_strip1 + three_strip + five_strip2 + three_strip + two_strip
+    #r_col = [(3,2,3,2,1),(1,1,2,1,1,2,1)] + [(1,)*7 for _ in range(15)] + [(2,1,3,1,3)]
     ## small but constraint propagation alone won't solve 
-    #runs_row = [(4,),(4,),(1,),(1,1),(1,)] # not possible to solve with this solver
-    #runs_col = [(1,),(2,1),(2,1),(2,1),(1,1)] # not possible to solve with this solver
+    #r_row = [(4,),(4,),(1,),(1,1),(1,)] # not possible to solve with this solver
+    #r_col = [(1,),(2,1),(2,1),(2,1),(1,1)] # not possible to solve with this solver
 
-    game = Nonogram(runs_row, runs_col)
+    game = Nonogram(r_row, r_col)
 
     ## set solution
     #game.set_grid(solution)
@@ -491,11 +540,11 @@ if __name__ == '__main__':
             lines = file.read().split("\n")
             for i in range(0, len(lines), 3):
                 s = lines[i + 1].strip().split(" ")
-                runs_row = [tuple(ord(c) - ord('A') + 1 for c in run) for run in s]
+                r_row = [tuple(ord(c) - ord('A') + 1 for c in run) for run in s]
                 s = lines[i + 2].strip().split(" ")
-                runs_col = [tuple(ord(c) - ord('A') + 1 for c in run) for run in s]
+                r_col = [tuple(ord(c) - ord('A') + 1 for c in run) for run in s]
 
-                game = Nonogram(runs_row, runs_col)
+                game = Nonogram(r_row, r_col)
                 game.solve_fast()
                 game.show_grid(show_instructions=True, symbols="x#.?")
                 print(game.is_complete(), "{:.2f}%%".format(game.progress*100))
