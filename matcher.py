@@ -41,8 +41,7 @@ def minimum_sequence(pattern):
 def find_match(array, pattern):
     iters_threshold = 5e3
     #return find_match_backwards(array, pattern, iters_threshold=iters_threshold)
-    #return find_match_forwards(array, pattern, iters_threshold=iters_threshold)
-    return find_match_shifter(array, pattern, iters_threshold=iters_threshold)
+    return find_match_forwards(array, pattern, iters_threshold=iters_threshold)
     # try:
     #     threshold = 0.2 * len(array)
     #     idx = listRightIndex(array, BLACK)
