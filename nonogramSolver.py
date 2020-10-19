@@ -27,6 +27,7 @@ import matplotlib.colors
 
 from integerPartitions import integer_partitions, unique_perm_partitions
 from matcher import Match, find_match
+from matcher_nfa import Match, NonDeterministicFiniteAutomation
 from guesser import rank_guesses, rank_guesses2
 
 BLACK = 1   # = 01 in binary
@@ -369,6 +370,7 @@ class Nonogram():
 
         def left_rightmost_overlap(arr, runs):
             """Returns the overlap between the left-most and right-most fitting sequences"""
+            find_match = NonDeterministicFiniteAutomation().find_match
             left = find_match(arr, runs)
             right = find_match(arr[::-1], runs[::-1])
             if left.is_match and right.is_match:
@@ -427,11 +429,12 @@ class Nonogram():
                     grid[i][j] = allowed[i]
         
         if rows_to_edit is None and columns_to_edit is None:
+            # initialise
             # rows, columns for constraint propagation to be applied
             rows_to_edit = set()
             columns_to_edit = set(range(self.n_cols)) 
 
-            for i in range(self.n_rows): # initialise
+            for i in range(self.n_rows): 
                 fix_row(i)
             sweeps = 1 # include initialise
         else:
@@ -453,7 +456,7 @@ class Nonogram():
 
         if not self.is_complete(grid):
             #rankings = rank_guesses(grid)
-            rankings = rank_guesses2(grid, self.runs_row, self.runs_col) + rank_guesses(grid) # if the first is empty, default to this
+            rankings = rank_guesses(grid) # if the first is empty, default to this
             if rankings:
                 rank, ij = rankings.pop(0) # only guess with the highest ranked cell
                 i, j = ij
@@ -575,7 +578,7 @@ if __name__ == '__main__':
 
     plot_nonogram(game.grid)
 
-    if 1==0:
+    if 1==1:
         start_time = time.time()
         #filename = 'rosetta_code_puzzles.txt'
         filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 

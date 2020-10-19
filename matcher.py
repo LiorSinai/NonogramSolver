@@ -5,7 +5,7 @@ Mock regex
 
 """
 
-import re
+from Match import Match, minimum_sequence
 
 BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
@@ -14,34 +14,16 @@ EITHER = 3  # = 11 in binary
 def fits(a, b):
     return all(x & y for x, y in zip(a, b))
 
-class Match():
-    def __init__(self, match=None, pattern=None, span=None):
-        self.match = match
-        self.pattern = pattern
-        self.span = span
-
-    @property
-    def is_match(self):
-        return self.match is not None
-
 
 def listRightIndex(array, value):
     """Returns the index for the right-most matching value"""
     return len(array) - array[-1::-1].index(value) -1
 
 
-def minimum_sequence(pattern):
-    """ Returns the minimum sequence of a pattern, which is one WHITE between every black"""
-    arr = []
-    for n_black in pattern:
-        arr += [WHITE] + [BLACK]  * n_black
-    return arr[1:]
-
-
 def find_match(array, pattern):
     iters_threshold = 5e3
-    #return find_match_backwards(array, pattern, iters_threshold=iters_threshold)
-    return find_match_forwards(array, pattern, iters_threshold=iters_threshold)
+    return find_match_backwards(array, pattern, iters_threshold=iters_threshold)
+    #return find_match_forwards(array, pattern, iters_threshold=iters_threshold)
     # try:
     #     threshold = 0.2 * len(array)
     #     idx = listRightIndex(array, BLACK)

@@ -11,12 +11,15 @@ BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
 EITHER = 3  # = 11 in binary
 
-from matcher import find_match_backwards, find_match_fowards
+from matcher import find_match_backwards, find_match_forwards
+from matcher_nfa import NonDeterministicFiniteAutomation
+
 
 class TestMatcher(unittest.TestCase):
     def setUp(self):
-        self.matcher = find_match_backwards
-        #self.matcher = find_match_fowards
+        #self.matcher = find_match_backwards
+        #self.matcher = find_match_forwards
+        self.matcher = NonDeterministicFiniteAutomation().find_match
 
     def array_10(self):
         runs = (3, 2, 1)
