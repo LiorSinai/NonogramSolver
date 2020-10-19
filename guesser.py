@@ -14,10 +14,11 @@ def argsort(array, reverse=False):
     return  sorted(range(len(array)), key = lambda x: array[x], reverse=reverse)
 
 
-def rank_guesses(grid, n_rows: int, n_cols: int):
+def rank_guesses(grid):
     """ Give a heuristic ranking for guesses
     - 2-4 neighbor cells are solved https://webpbn.com/pbnsolve.html
     """
+    n_rows, n_cols = len(grid), len(grid[0])
     rankings = []
     # 2-4 rankings
     for idx in range(n_cols * n_rows):
@@ -35,5 +36,74 @@ def rank_guesses(grid, n_rows: int, n_cols: int):
     rankings.sort(reverse=True)
     return rankings
 
+def get_sequence(arr):
+    white = True
+    sequence = []
+    positions = [] #where the sequences start and end
+    for idx, color in enumerate(arr):
+        if color == BLACK and white:
+            sequence.append(1)
+            positions.append([idx, idx])
+            white = False
+        elif color == BLACK and not white:
+            sequence[-1] += 1
+            positions[-1][1] = idx
+        else: #  color == WHITE or EITHER
+            white = True 
 
-                    
+    return sequence, positions
+
+
+def rank_guesses2(grid, runs_row, runs_col):
+    """ Give a heuristic ranking for guesses
+    Cells next to the largest incomplete maximums
+    """
+    rankings = []
+    n_rows, n_cols = len(grid), len(grid[0])
+
+    for i in range(n_rows):
+        row = grid[i]
+        rankings_i = get_rankings_next_to_maxs(row, runs_row[i])
+        for rank, j in rankings_i:
+            neighbours = [(i + o1, j + o2) for o1, o2 in ((-1, 0), (+1, 0), (0, -1), (0, +1))]
+            for i_n, j_n in neighbours:
+                # increase rank if a neighbour is solved. Edges don't count as solved
+                if (i_n >= 0 and i_n < n_rows) and (j_n >= 0 and j_n < n_cols) and (grid[i_n][j_n] != EITHER):
+                    rank += 1
+            rankings.append((rank, (i, j)))
+    for j in range(n_cols):
+        col = [grid[i][j] for i in range(n_rows)]
+        rankings_i = get_rankings_next_to_maxs(col, runs_col[j])
+        for rank, i in rankings_i:
+            neighbours = [(i + o1, j + o2) for o1, o2 in ((-1, 0), (+1, 0), (0, -1), (0, +1))]
+            for i_n, j_n in neighbours:
+                # increase rank if a neighbour is solved. Edges don't count as solved
+                if (i_n >= 0 and i_n < n_rows) and (j_n >= 0 and j_n < n_cols) and (grid[i_n][j_n] != EITHER):
+                    rank += 1
+            rankings.append((rank, (i, j)))
+    
+    rankings.sort(reverse=True)
+    return rankings     
+
+def get_rankings_next_to_maxs(array, runs_target):
+    runs, pos = get_sequence(array)
+    min_length = min(len(runs), len(runs_target))
+    targets_sorted = sorted(runs_target, reverse=True)
+    placed_orded = argsort(runs, reverse=True)
+    k = 0
+    rankings = []
+    while k < min_length and runs[placed_orded[k]] == targets_sorted[k]:
+        k += 1
+    if k >= min_length - 1:
+        return rankings  # this array is complete
+    idx = placed_orded[k]
+    if runs[idx] < runs_target[k] and (runs[idx] > targets_sorted[k+1]): 
+        # this run is incomplete and definitely not part of the next run
+        inds = (max(pos[k][0] - 1, 0), min(pos[k][1] + 1, len(array) - 1))
+        for j in inds:
+            rank = 0
+            if array[j] == EITHER:
+                rankings.append((rank, j))
+    return rankings
+        
+              

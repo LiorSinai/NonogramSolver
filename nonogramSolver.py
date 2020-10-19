@@ -27,7 +27,7 @@ import matplotlib.colors
 
 from integerPartitions import integer_partitions, unique_perm_partitions
 from matcher import Match, find_match
-from guesser import rank_guesses
+from guesser import rank_guesses, rank_guesses2
 
 BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
@@ -84,7 +84,10 @@ class Nonogram():
         
         return box
 
-    def show_grid(self, grid=None, show_instructions=True, symbols="x#.?"):
+    def show_grid(self, grid=None, show_instructions=True, toFile=False, symbols="x#.?"):
+        if toFile:
+            file = open("nonogram.txt", "w")
+
         grid = self.grid if grid is None else grid
         if show_instructions:
             grid_ = self.make_box(grid, symbols) 
@@ -95,6 +98,8 @@ class Nonogram():
         for row in grid_:
             for symbol in row:
                 print("{:2}".format(symbol), end='')
+            if toFile:
+                file.write("\n"+''.join(row))
             print("")
 
 
@@ -110,8 +115,10 @@ class Nonogram():
         if grid is None:
             grid = self.grid
         for arr, run in zip(grid + list(zip(*grid)), self.runs_row + self.runs_col):
-            if not self.is_valid_partial(arr, run):
+            if not self.is_valid_partial(arr, run): # from left
                 return False    
+            if not self.is_valid_partial(arr[::-1], run[::-1]):
+                return False # from right
         return True
 
     def _get_sequence(self, arr):
@@ -138,13 +145,12 @@ class Nonogram():
     def is_valid_partial(self, arr, target):   
         "do placed black squares follow the rules so far?"
 
-        if all([x!= EITHER for x in arr]): # make sure there are no gaps!
-            sequence, _ = self._get_sequence(arr)
-            if len(sequence) == len(target): 
-                return all([x <= y for x, y in zip(sequence, target)])
-            else:
-                return False 
-        return True # not sure if valid or not so return
+        try:
+            idx = arr.index(EITHER) # make sure there are no gaps
+            sequence, _ = self._get_sequence(arr[:idx])
+            return all([x == y for x, y in zip(sequence, target)])
+        except ValueError:
+            return True # not sure if valid or not so return
 
 
     def solve(self):
@@ -446,13 +452,15 @@ class Nonogram():
             return grid
 
         if not self.is_complete(grid):
-            rankings = rank_guesses(grid, self.n_rows, self.n_cols)
+            #rankings = rank_guesses(grid)
+            rankings = rank_guesses2(grid, self.runs_row, self.runs_col) + rank_guesses(grid) # if the first is empty, default to this
             if rankings:
                 rank, ij = rankings.pop(0) # only guess with the highest ranked cell
                 i, j = ij
                 # make a guess
                 self.guesses += 1 # only the first one is a guess, the second time we know it is right
-                print(self.guesses, end=", ")
+                progress = 1 - sum(row.count(EITHER) for row in grid)/(self.n_rows * self.n_cols)
+                print(self.guesses, "{:.5f}".format(progress*100))
                 for cell in [BLACK, WHITE]:
                     grid_next = [row[:] for row in grid]
                     grid_next[i][j] = cell
@@ -464,7 +472,6 @@ class Nonogram():
 
     def solve_fast(self):
         grid = [row[:] for row in self.grid]
-        print("guess no: 0", end =', ')
         grid = self.solve_fast_(grid)
         print("")
         self.set_grid(grid)
@@ -568,7 +575,7 @@ if __name__ == '__main__':
 
     plot_nonogram(game.grid)
 
-    if 1==1:
+    if 1==0:
         start_time = time.time()
         #filename = 'rosetta_code_puzzles.txt'
         filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 
