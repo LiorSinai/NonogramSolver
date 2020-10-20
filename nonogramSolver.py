@@ -187,12 +187,8 @@ class Nonogram():
             n = len(runs)
             sequence_whites = [0] + [1] * (n - 1) + [0] # at least one white in between each
             free_whites = length - sum(runs) - (n - 1)  # remaining whites to place
-
-            if free_whites > 30:
-                return []
             
             possible = [] # all possible permutations of the run
-
             # find all ways to place remaining free whites
             for partition in unique_perm_partitions(free_whites, len(sequence_whites)): # unique partitions
                 arr = []
@@ -274,6 +270,9 @@ class Nonogram():
             rows_to_edit = set()
             
         print("\nconstraint propagation done in {} rounds".format(sweeps))
+        print("possible rows: {}\npossible columns: {}".format([len(x) for x in possible_rows], [len(x) for x in possible_cols]))
+        print("summary: {} possible rows and {} possible columns".format(sum([len(x) for x in possible_rows]), 
+                                                                        sum([len(x) for x in possible_cols])))
 
         solution_found = all(self.grid[i][j] in (1, 2) for j in range(self.n_cols) for i in range(self.n_rows)) # might be incorrect
         if solution_found:
@@ -309,11 +308,6 @@ class Nonogram():
                  print("{} solutions found".format(num_solutions))
             self.set_grid(grid_original)
         
-        print("\nafter solving:")
-        print("possible rows: {}\npossible columns: {}".format([len(x) for x in possible_rows], [len(x) for x in possible_cols]))
-        print("summary: {} possible rows and {} possible columns".format(sum([len(x) for x in possible_rows]), 
-                                                                        sum([len(x) for x in possible_cols])))
-        
 
     def solve_fast_(self, grid, rows_to_edit=None, columns_to_edit=None, make_guess = False):
         def simple_filler(arr, runs):
@@ -338,6 +332,15 @@ class Nonogram():
                         allowed[i] = WHITE      
                     else:
                         break # too many unknowns
+
+            if all([r == 1 for r in runs]):
+                for i in range(len(arr)):
+                    if arr[i] == BLACK:
+                        if i > 0:
+                            allowed[i-1] = WHITE
+                        if i < len(arr) - 1:
+                            allowed[i+1] = WHITE
+
             return allowed
 
         def changer_sequence(vec):
@@ -433,7 +436,7 @@ class Nonogram():
                 fix_row(i)
             sweeps = 1 # include initialise
         else:
-            sweeps = 0
+            sweeps = 0  
 
         while columns_to_edit:
             sweeps += 2 # for columns and rows
@@ -557,8 +560,8 @@ if __name__ == '__main__':
     #r_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
 
     # # aeroplane -> solve fast doesn't work. https://www.youtube.com/watch?v=MZQDDzzRBvI
-    #r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
-    #r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
+    r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
+    r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
 
     ## https://www.researchgate.net/publication/290264363_On_the_Difficulty_of_Nonograms
     ## Batenburg construction -> requires 120 sweeps

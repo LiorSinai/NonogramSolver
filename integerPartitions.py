@@ -11,8 +11,8 @@ https://stackoverflow.com/questions/17720072/print-all-unique-integer-partitions
 """
 from itertools import permutations
 
-def integer_partitions2(n, parts, k=0, min_val=1):
-    # unique partitions with passing a list that may have inital values
+def integer_partitions2(n, parts, k=0, min_val=0):
+    # unique partitions with passing a list that may have initial values
     if n < min_val:
         return
     if k == len(parts) - 1:
@@ -25,16 +25,39 @@ def integer_partitions2(n, parts, k=0, min_val=1):
             yield from integer_partitions2(n-i, parts_next, k + 1, min_val=i)
 
 
+class UniqueElement:
+    def __init__(self,value,occurrences):
+        self.value = value
+        self.occurrences = occurrences
+
+def perm_unique(elements):
+    # answer to https://stackoverflow.com/questions/6284396/permutations-with-unique-values
+    eset = set(elements)
+    listunique = [UniqueElement(i,elements.count(i)) for i in eset]
+    u = len(elements)
+    return perm_unique_helper(listunique, [0]*u, u-1)
+
+def perm_unique_helper(listunique, result_list, d):
+    if d < 0:
+        yield tuple(result_list)
+    else:
+        for i in listunique:
+            if i.occurrences > 0:
+                result_list[d] = i.value
+                i.occurrences -= 1
+                for g in  perm_unique_helper(listunique, result_list, d-1):
+                    yield g
+                i.occurrences += 1
+
 def unique_perm_partitions(n, k):
-    # get unique permutations. There are cleverer but more complex ways
-    # https://stackoverflow.com/questions/6284396/permutations-with-unique-values
+    """ get unique permutations of integer partitions"""
     for partition in integer_partitions(n, k): # unique partitions
-        for perm in set(permutations(partition)): # generate all permutations and find the set
+        for perm in perm_unique(partition): #set(permutations(partition)): # generate all permutations and find the set
             yield perm
 
 
-def integer_partitions(n, k, min_val=0):
-    # unique partitions with no list
+def integer_partitions(n:int, k:int, min_val=0):
+    """ unique partitions of length k for an integer n"""
     if n < min_val:
         return
     if k == 1:
@@ -43,20 +66,7 @@ def integer_partitions(n, k, min_val=0):
         for i in range(min_val, n + 1):
             for result in integer_partitions(n-i, k - 1, min_val=i):
                 yield (i,) + result 
-
-# def integer_parts(n, parts):
-#    # has duplicates
-#     if n == 0:
-#         yield parts
-#     else:
-#         for i in range(0, len(parts)):
-#             parts_next = parts[:]
-#             parts_next[i] += 1
-#             yield from integer_parts(n-1, parts_next)
-
-
-
-
+                
 
 if __name__ == '__main__':
     #n, parts = 5, [0] * 3
@@ -71,10 +81,6 @@ if __name__ == '__main__':
     for i, partition in enumerate(unique_perm_partitions(n, len(parts))):
         print(i, partition)
 
-    # for p1, p2 in zip(integer_partitions_nk(n, parts), integer_partitions_nk(n, len(parts))):
-    #     print(p1, p2)
-
-    run = (3, 3, 1)
-    sequence = [3, 3, 1, 3, 3, 1, 1, 1, 3, 3, 3, 3, 1, 3, 3]
-    possible = [1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0]
-    possible = [0, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0]
+    print("")
+    for i, p in enumerate(zip(integer_partitions2(n, parts), integer_partitions(n, len(parts)))):
+        print(i, p[0], p[1])
