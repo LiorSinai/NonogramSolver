@@ -9,6 +9,8 @@ BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
 EITHER = 3  # = 11 in binary
 
+from random import shuffle
+
 def argsort(array, reverse=False):
     """ returns the indexes for the original array for values in the sorted array"""
     return  sorted(range(len(array)), key = lambda x: array[x], reverse=reverse)
@@ -27,13 +29,16 @@ def rank_guesses(grid):
         if grid[i][j] == EITHER:
             neighbours = [(i + o1, j + o2) for o1, o2 in ((-1, 0), (+1, 0), (0, -1), (0, +1))]
             for i_n, j_n in neighbours:
-                # increase rank if a neighbour is solved. Edges don't count as solved
+                # increase rank if a neighbour is solved. 
                 if (i_n >= 0 and i_n < n_rows) and (j_n >= 0 and j_n < n_cols) and (grid[i_n][j_n] != EITHER):
                     rank += 1
-            if rank >= 2:
-                rankings.append((rank, (i, j)))
+            # increase rank if on edge -> partial validation is from edges
+            rank += (i == 0 or i == n_rows - 1)
+            rank += (j == 0 or j == n_cols - 1)
+                
+            rankings.append((rank, (i, j)))
 
-    rankings.sort(reverse=True)
+    rankings.sort(reverse=True, key=lambda x: x[0])
     return rankings
 
 def get_sequence(arr):
@@ -82,7 +87,7 @@ def rank_guesses2(grid, runs_row, runs_col):
                     rank += 1
             rankings.append((rank, (i, j)))
     
-    rankings.sort(reverse=True)
+    rankings.sort(reverse=True, key=lambda x: x[0])
     return rankings     
 
 def get_rankings_next_to_maxs(array, runs_target):

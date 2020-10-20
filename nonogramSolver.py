@@ -85,10 +85,7 @@ class Nonogram():
         
         return box
 
-    def show_grid(self, grid=None, show_instructions=True, toFile=False, symbols="x#.?"):
-        if toFile:
-            file = open("nonogram.txt", "w")
-
+    def show_grid(self, grid=None, show_instructions=True, symbols="x#.?"):
         grid = self.grid if grid is None else grid
         if show_instructions:
             grid_ = self.make_box(grid, symbols) 
@@ -99,8 +96,6 @@ class Nonogram():
         for row in grid_:
             for symbol in row:
                 print("{:2}".format(symbol), end='')
-            if toFile:
-                file.write("\n"+''.join(row))
             print("")
 
 
@@ -320,7 +315,7 @@ class Nonogram():
                                                                         sum([len(x) for x in possible_cols])))
         
 
-    def solve_fast_(self, grid, rows_to_edit=None, columns_to_edit=None):
+    def solve_fast_(self, grid, rows_to_edit=None, columns_to_edit=None, make_guess = False):
         def simple_filler(arr, runs):
             """ fill in black gaps and whites ending sequences. The overlap algorithm might miss these"""
             k = 0  # index for runs
@@ -454,30 +449,48 @@ class Nonogram():
         if not self.is_valid_partial_grid(grid):
             return grid
 
-        if not self.is_complete(grid):
-            #rankings = rank_guesses(grid)
-            rankings = rank_guesses(grid) # if the first is empty, default to this
+        if not self.is_complete(grid) and make_guess:
+            rankings = rank_guesses(grid)
             if rankings:
-                rank, ij = rankings.pop(0) # only guess with the highest ranked cell
+                rank, ij = rankings[0]
                 i, j = ij
                 # make a guess
-                self.guesses += 1 # only the first one is a guess, the second time we know it is right
+                #i,j, value, rank, prog = self.probe(grid)
                 progress = 1 - sum(row.count(EITHER) for row in grid)/(self.n_rows * self.n_cols)
                 print(self.guesses, "{:.5f}".format(progress*100))
-                for cell in [BLACK, WHITE]:
+                self.guesses += 1 # only the first one is a guess, the second time we know it is right
+                for cell in [BLACK, WHITE]: 
                     grid_next = [row[:] for row in grid]
                     grid_next[i][j] = cell
-                    grid_next = self.solve_fast_(grid_next, {i}, {j})
+                    grid_next = self.solve_fast_(grid_next, {i}, {j}, make_guess = True)
                     if self.is_complete(grid_next):
                         grid = grid_next
                         break      
         return grid
 
-    def solve_fast(self):
+    def solve_fast(self, make_guess=False):
         grid = [row[:] for row in self.grid]
-        grid = self.solve_fast_(grid)
+        grid = self.solve_fast_(grid, make_guess=make_guess)
         print("")
         self.set_grid(grid)
+
+
+    def probe(self, grid):
+        """ solve every guess find the guess which makes the most progress on the next guess"""
+        rankings = list(set(rank_guesses2(grid, self.runs_row, self.runs_col) + rank_guesses(grid))) 
+        max_solve = 0
+        guess = None
+        for rank, ij in rankings[:10]: # only probe the top 10
+            i, j = ij
+            for value in [BLACK, WHITE]:
+                grid_next = [row[:] for row in grid]
+                grid_next[i][j] = value
+                grid_next = self.solve_fast_(grid_next, {i}, {j}, make_guess=False)
+                progress = 1 - sum(row.count(EITHER) for row in grid)/(self.n_rows * self.n_cols)
+                if progress > max_solve:
+                    max_solve = progress
+                    guess = i,j, value, rank, progress
+        return guess
 
 
 def encode_puzzle(filename, runs_row, runs_col, description="") -> None:
@@ -544,8 +557,8 @@ if __name__ == '__main__':
     #r_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
 
     # # aeroplane -> solve fast doesn't work. https://www.youtube.com/watch?v=MZQDDzzRBvI
-    r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
-    r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
+    #r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
+    #r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
 
     ## https://www.researchgate.net/publication/290264363_On_the_Difficulty_of_Nonograms
     ## Batenburg construction -> requires 120 sweeps
