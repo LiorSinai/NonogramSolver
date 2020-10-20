@@ -24,22 +24,12 @@ def find_match(array, pattern):
     iters_threshold = 5e3
     return find_match_backwards(array, pattern, iters_threshold=iters_threshold)
     #return find_match_forwards(array, pattern, iters_threshold=iters_threshold)
-    # try:
-    #     threshold = 0.2 * len(array)
-    #     idx = listRightIndex(array, BLACK)
-    #     if idx < threshold:
-    #         return find_match_forwards(array, pattern, iters_threshold=iters_threshold)
-    #     else:
-    #         return find_match_backwards(array, pattern, iters_threshold=iters_threshold)
-    # except ValueError:
-    #     return find_match_backwards(array, pattern, iters_threshold=iters_threshold)
-
 
 def find_match_forwards(array, pattern, start=True, iters_threshold=1e9):
     def find_match_forwards_(array, pattern, start=True):
         # forward algorithm -> goes very slowly if there is a black much further down, because finds all possibilities that can fit infront
-        # supposed to mimic the regex expression "([32]*)([31]){x}([32]+)...([32]*)"
-        # except returns the minumum match
+        # mimics the regex expression "([32]*)([31]){x}([32]+)...([32]*)"
+        # except returns the left-most match
         nonlocal iters
         iters += 1
         out = Match(pattern=pattern)
@@ -92,7 +82,7 @@ def find_match_forwards(array, pattern, start=True, iters_threshold=1e9):
 
 
 def find_match_backwards(array, pattern, iters_threshold=1e9):
-    # returns the left-most match, constructed from the back
+    """ returns the left-most match, constructed from the back """
     def find_match_backwards_(array, pattern):
         nonlocal iters
         iters += 1
@@ -156,15 +146,6 @@ def find_match_backwards(array, pattern, iters_threshold=1e9):
     return find_match_backwards_(array, pattern)
 
 if __name__ == '__main__':    
-    # for row, result in tests:
-    #     s = ''.join(map(str, row))
-    #     pattern = "([3]*)"
-    #     for x in runs:
-    #         pattern += "[31]{" + str(x) + "}([32]+)"
-    #     pattern += "([3]*)"
-    #     m1 = re.search(pattern,s)
-    #     print(m1)
-
     runs = (6, 7)
     row = [WHITE] + [BLACK] *5 + [EITHER] * 2 + [BLACK] * 7
     result = [WHITE] + [BLACK] *6 + [WHITE] + [BLACK] * 7

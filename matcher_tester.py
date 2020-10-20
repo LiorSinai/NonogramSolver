@@ -78,6 +78,25 @@ class TestMatcher(unittest.TestCase):
         m = ''.join([reverse_map[x] for x in m])
         self.assertEqual(m, "---#-------------#-#####")
 
+    
+    def worst_case(self):
+        pattern = (2, 5, 3, 1) 
+        row = [EITHER] * 19 + [BLACK] # lots of backtracking because last result is false
+        answer = [] 
+        for p in pattern[:-1]:
+            answer += [BLACK] * p + [WHITE]
+        answer += [WHITE] * (len(row) - len(answer) - pattern[-1]) + [BLACK] * pattern[-1]
+
+        m = self.matcher(row, pattern).match
+        self.assertEqual(m, answer)
+    
+    def very_long(self):
+        pattern = (2, 4, 9, 7, 1, 1, 8, 8, 3)
+        row = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 1, 1, 1, 1, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+        ans = [1, 1, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
+
+        m = self.matcher(row, pattern).match
+        self.assertEqual(m, ans)
 
 def suite():
     "Set order of tests in ascending order of complexity and code required"
@@ -87,6 +106,8 @@ def suite():
     suite.addTest(TestMatcher('array_10_rightmost'))
     suite.addTest(TestMatcher('long_run'))
     suite.addTest(TestMatcher('lancaster_example'))
+    suite.addTest(TestMatcher('worst_case'))
+    suite.addTest(TestMatcher('very_long'))
     return suite
 
 

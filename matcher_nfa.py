@@ -19,7 +19,7 @@ BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
 EITHER = 3  # = 11 in binary
 
-from Match import Match, minimum_sequence
+from Match import Match, minimum_sequence, special_matches
 
 class State():
     def __init__(self, value, prev=None, id=0, qualifier=None):
@@ -36,18 +36,16 @@ class State():
     def transition(self, value):
         if self.qualifier:
             # make a split
-            s1 = self.next if (self.next.value & value) else None
+            s1 = self.next if (self.next and self.next.value & value) else None
             if self.next1:
-                s2 = self.next1 if (self.next1.value & value) else None
+                s2 = self.next1 if (self.next1 and self.next1.value & value) else None
             else:
                 s2 = None
             return s1, s2         
         elif self.next.value == self.next.value & value:
             return self.next, self.next1
         else:
-            return None
-
-
+            return None, None
 
 
 class NonDeterministicFiniteAutomation():
@@ -58,9 +56,9 @@ class NonDeterministicFiniteAutomation():
 
     def convert_pattern(self, pattern):
         fragments = [WHITE, "*"]
-        for p in pattern:
+        for p in pattern[:-1]:
             fragments += [BLACK] * p + [WHITE, "+"]
-        fragments = fragments[:-2] # skip the last white *
+        fragments += [BLACK] * pattern[-1] # skip the last white *
         return fragments
 
     def construct(self, pattern):
@@ -81,7 +79,7 @@ class NonDeterministicFiniteAutomation():
                 prev_state = state.prev
                 next_state = state.next
                 prev_state.next  = next_state # option to skip this state
-                prev_state.next1 = state      # this was prev_state.next originally. Moved to find minimum match (blacks match first)
+                prev_state.next1 = state      # this was prev_state.next originally. Moved to find left-most match (blacks match first)
 
     def add_state(self, symbol):
         prev_state = self.states[-1]
@@ -94,22 +92,13 @@ class NonDeterministicFiniteAutomation():
             self.states.append(state)
             prev_state.next = state  # patch previous state
 
-    def find_minimum_match(self, array, pattern):
+    def find_match_BFS(self, array, pattern):
         """ breadth first search, very slow, O(2^n) time """
 
         # special case optimisation
-        if not pattern:
-            # match an empty sequence
-            if array.count(BLACK) == 0:
-                match = [WHITE] * len(array)
-                return Match(match, pattern=self.pattern)     
-            else:
-                return Match(pattern=self.pattern) #no match
-        min_length = sum(pattern) + (len(pattern) - 1)
-        if array.count(BLACK) == 0 and array.count(WHITE) ==0:
-            # construct minimum pattern
-            return Match(minimum_sequence(pattern, len(array)), pattern=self.pattern)
-
+        match = special_matches(array, pattern)
+        if match.is_match:
+            return match
 
         self.construct(pattern) # create the state firsts
 
@@ -126,18 +115,16 @@ class NonDeterministicFiniteAutomation():
                 match = matches.pop(0)
                 state = self.states[state_id]
                 next_state = state.transition(array[idx])
-                if next_state is not None:
-                    s1, s2 = next_state # possible split
-                    for s in next_state:
-                        if s and s.is_final:
-                            if array[idx+1:].count(BLACK) == 0:
-                                match_final = match + [s.value]
-                                match_final += [WHITE] * (len(array) - idx - 1)
-                                return Match(match_final, pattern=self.pattern)
-                            # else its not added to the stack
-                        elif s:
-                            stack.append(s.id)
-                            matches.append(match + [s.value])
+                for s in next_state:
+                    if s and s.is_final:
+                        if array[idx+1:].count(BLACK) == 0:
+                            match_final = match + [s.value]
+                            match_final += [WHITE] * (len(array) - idx - 1)
+                            return Match(match_final, pattern=self.pattern)
+                        # else: its not added to the stack
+                    elif s:
+                        stack.append(s.id)
+                        matches.append(match + [s.value])
 
         return Match(pattern=self.pattern) # no match
 
@@ -146,42 +133,37 @@ class NonDeterministicFiniteAutomation():
         """ finds a minimum length match, not necessarily the left-most. Very fast, O(n^2) time """
 
         # special case optimisation
-        if not pattern:
-            # match an empty sequence
-            if array.count(BLACK) == 0:
-                match = [WHITE] * len(array)
-                return Match(match, pattern=self.pattern)     
-            else:
-                return Match(pattern=self.pattern) #no match
-        min_length = sum(pattern) + (len(pattern) - 1)
-        if array.count(BLACK) == 0 and array.count(WHITE) ==0 or not pattern:
-            # construct minimum pattern
-            return Match(minimum_sequence(pattern, len(array)), pattern=self.pattern)
+        match = special_matches(array, pattern)
+        if match.is_match:
+            return match
 
         self.construct(pattern) # create the state firsts
 
-        # simulate finite state machine. Only keeps one path, not necessarily the best
+        # simulate finite state machine. Only keeps one path, not necessarily the left-most
         idx = - 1
-        stack = {0: []} # key  
+        stack = {0: []} # state_id: match  
         while idx < len(array) - 1 and stack:
             idx += 1
             state_ids = list(stack.keys())
+            for_new_stack = []
             for state_id in state_ids:
                 # advance each one at a time
                 match = stack.pop(state_id)
                 state = self.states[state_id]
                 next_state = state.transition(array[idx])
-                if next_state is not None:
-                    s1, s2 = next_state # possible split
-                    for s in next_state:
-                        if s and s.is_final:
-                            if array[idx+1:].count(BLACK) == 0:
-                                match_final = match + [s.value]
-                                match_final += [WHITE] * (len(array) - idx - 1)
-                                return Match(match_final, pattern=self.pattern)
-                            # else its not added to the stack
-                        elif s and s.id not in stack:
-                            stack[s.id] = match + [s.value]
+                for s in next_state:
+                    if s and s.is_final:
+                        if array[idx+1:].count(BLACK) == 0:
+                            match_final = match + [s.value]
+                            match_final += [WHITE] * (len(array) - idx - 1)
+                            return Match(match_final, pattern=self.pattern)
+                        # else: its not added to the stack
+                    elif s and s.id not in stack:
+                        for_new_stack.append((s.id, match + [s.value]))
+                        #stack[s.id] = match + [s.value]
+            for key, val in for_new_stack:
+                if key not in stack:
+                    stack[key] = val
 
         return Match(pattern=self.pattern) # no match
 

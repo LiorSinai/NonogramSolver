@@ -21,3 +21,19 @@ def minimum_sequence(pattern, length):
     match = match[1:] # chop off the first WHITE
     match += [WHITE] * (length - len(match)) 
     return match
+
+
+def special_matches(array, pattern):
+    # special case optimisation
+    if not pattern:
+        # match an empty sequence
+        if array.count(BLACK) == 0:
+            match = [WHITE] * len(array)
+            return Match(match, pattern=pattern)     
+        else:
+            return Match(pattern=pattern) #no match
+    if array.count(BLACK) == 0 and array.count(WHITE) ==0:
+        # construct minimum pattern
+        return Match(minimum_sequence(pattern, len(array)), pattern=pattern)
+    else:
+        return Match(pattern=pattern)  # no match
