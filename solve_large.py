@@ -6,9 +6,12 @@ Transcibe for using in this solver: http://scc-forge.lancaster.ac.uk/open/nonogr
 """
 
 import time
-
 import matplotlib.pyplot as plt
-from nonogramSolver import Nonogram, plot_nonogram
+
+from nonogram import Nonogram, plot_nonogram
+from solver_complete import solve
+from solver_fast import solve_fast
+
 
 BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
@@ -89,25 +92,26 @@ if __name__ == '__main__':
 
     file_name = 'puzzles/'+ file_name
     runs_row, runs_col, solution = decode(file_name)
-    game = Nonogram(runs_row, runs_col)
+    puzzle = Nonogram(runs_row, runs_col)
 
     solve = True
     # set solution
     if solution and not solve: # the webpbn files have solutions
         print("setting solution ...")
         grid_sol = decode_solution(solution, len(runs_row), len(runs_col))
-        game.set_grid(grid_sol)
+        puzzle.set_grid(grid_sol)
 
     ##solve game
     if solve:
         start_time = time.time()
-        game.solve_fast(make_guess=False)
-        #game.solve()
+        grid = solve_fast(puzzle, make_guess=False)
+        #grid = solve(puzzle, make_guess=False)
         end_time = time.time()
-        #game.show_grid(show_instructions=False, symbols="x#.?") # these are very big to print on the command line
-        print(game.is_complete(), "{:.2f}%%".format(game.progress*100))
+        puzzle.set_grid(grid)
+        #puzzle.show_grid(show_instructions=False, symbols="x#.?") # these are very big to print on the command line
+        print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
         print("time taken: {:.5f}s".format(end_time - start_time))
 
-    plot_nonogram(game.grid)
+    plot_nonogram(puzzle.grid)
 
     plt.show()

@@ -58,7 +58,8 @@ class NonDeterministicFiniteAutomation():
         fragments = [WHITE, "*"]
         for p in pattern[:-1]:
             fragments += [BLACK] * p + [WHITE, "+"]
-        fragments += [BLACK] * pattern[-1] # skip the last white *
+        if pattern:
+            fragments += [BLACK] * pattern[-1] # skip the last white *
         return fragments
 
     def construct(self, pattern):
