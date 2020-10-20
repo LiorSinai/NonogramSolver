@@ -17,10 +17,8 @@ Notation
 
 """
 
-
 import matplotlib.pyplot as plt
 import matplotlib.colors
-
 
 
 BLACK = 1   # = 01 in binary
@@ -152,7 +150,6 @@ class Nonogram():
 
 
     
-
 def encode_puzzle(filename, runs_row, runs_col, description="") -> None:
     "Encode a puzzle in a text file in strings of letters"
     with open(filename, "a+") as file:

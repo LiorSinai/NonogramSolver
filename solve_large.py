@@ -81,37 +81,37 @@ def decode_solution(solution, n_rows, n_cols):
 
 if __name__ == '__main__':
     #file_name = "lost_puzzle.txt"
-    #file_name = "beach_puzzle.txt" # can't solve
-    #file_name = "artist_puzzle.txt" # faster with match_forwards than match backwards
+    file_name = "beach_puzzle.txt" # can't solve
+    #file_name = "artist_puzzle.txt" # faster with match_forwards than match backwards. NFA is of course the fastest
     #file_name = "balance_puzzle.txt"
     #file_name = "warship_puzzle.txt"
-    file_name = "bear.txt"
+    #file_name = "bear.txt"
 
     # the webpbn puzzles are super hard
-    #file_name = "webpbn-00065-Mum's the Word.txt"
+    #file_name = "webpbn-meow.txt"
 
     file_name = 'puzzles/'+ file_name
     runs_row, runs_col, solution = decode(file_name)
     puzzle = Nonogram(runs_row, runs_col)
 
-    solve = True
+    find_solution = True
     # set solution
-    if solution and not solve: # the webpbn files have solutions
+    if solution and not find_solution: # the webpbn files have solutions
         print("setting solution ...")
         grid_sol = decode_solution(solution, len(runs_row), len(runs_col))
         puzzle.set_grid(grid_sol)
 
     ##solve game
-    if solve:
+    if find_solution:
         start_time = time.time()
         grid = solve_fast(puzzle, make_guess=False)
-        #grid = solve(puzzle, make_guess=False)
+        #grid = solve(puzzle)
         end_time = time.time()
         puzzle.set_grid(grid)
         #puzzle.show_grid(show_instructions=False, symbols="x#.?") # these are very big to print on the command line
-        print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
         print("time taken: {:.5f}s".format(end_time - start_time))
 
+    print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
     plot_nonogram(puzzle.grid)
 
     plt.show()
