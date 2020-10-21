@@ -99,7 +99,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
 
     def left_rightmost_overlap(arr, runs):
         """Returns the overlap between the left-most and right-most fitting sequences"""
-        find_match = NonDeterministicFiniteAutomation().find_match
+        #find_match = NonDeterministicFiniteAutomation().find_match
         left = find_match(arr, runs)
         right = find_match(arr[::-1], runs[::-1])
         if left.is_match and right.is_match:

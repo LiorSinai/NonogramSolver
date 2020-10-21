@@ -5,7 +5,7 @@ Mock regex
 
 """
 
-from Match import Match, minimum_sequence, listRightIndex
+from match import Match, minimum_sequence, listRightIndex
 
 BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary

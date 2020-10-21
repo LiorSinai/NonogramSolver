@@ -19,7 +19,7 @@ BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
 EITHER = 3  # = 11 in binary
 
-from Match import Match, minimum_sequence, special_matches
+from match import Match, minimum_sequence, special_matches
 
 class State():
     def __init__(self, value, prev=None, id=0, qualifier=None):
