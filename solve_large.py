@@ -81,11 +81,11 @@ def decode_solution(solution, n_rows, n_cols):
 
 if __name__ == '__main__':
     #file_name = "lost_puzzle.txt"
-    file_name = "beach_puzzle.txt" # takes 343 guess
+    #file_name = "beach_puzzle.txt" # takes 343 guess
     #file_name = "artist_puzzle.txt" # faster with match_forwards than match backwards. NFA is of course the fastest
     #file_name = "balance_puzzle.txt"
     #file_name = "warship_puzzle.txt"
-    #file_name = "bear.txt"
+    file_name = "bear.txt"
 
     # the webpbn puzzles are super hard
     #file_name = "webpbn-01611-For  merilinnuke" +'.txt'
@@ -95,6 +95,7 @@ if __name__ == '__main__':
     puzzle = Nonogram(runs_row, runs_col)
 
     find_solution = True
+    make_guess = True
     # set solution
     if solution and not find_solution: # the webpbn files have solutions
         print("setting solution ...")
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     ##solve game
     if find_solution:
         start_time = time.time()
-        grid = solve_fast(puzzle, make_guess=True)
+        grid = solve_fast(puzzle, make_guess=make_guess)
         #grid = solve(puzzle)
         end_time = time.time()
         puzzle.set_grid(grid)
@@ -112,6 +113,6 @@ if __name__ == '__main__':
         print("time taken: {:.5f}s".format(end_time - start_time))
 
     print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
-    plot_nonogram(puzzle.grid)
+    plot_nonogram(puzzle.grid, show_instructions=True, runs_row=runs_row, runs_col=runs_col)
 
     plt.show()

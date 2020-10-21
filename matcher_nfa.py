@@ -169,8 +169,11 @@ class NonDeterministicFiniteAutomation():
 
         return Match(pattern=self.pattern) # no match
 
-                
-
+def find_match(array, pattern):
+    nfa = NonDeterministicFiniteAutomation()
+    return nfa.find_match(array, pattern)
+            
+            
 if __name__ == '__main__':
     matcher = NonDeterministicFiniteAutomation().find_match
 

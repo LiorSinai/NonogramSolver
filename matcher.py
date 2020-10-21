@@ -17,7 +17,7 @@ def fits(a, b):
 
 
 def find_match(array, pattern):
-    iters_threshold = 5e3
+    iters_threshold = 5e3 # NB: will raise a SolvingError if this is hit!!!
     return find_match_backwards(array, pattern, iters_threshold=iters_threshold)
     #return find_match_forwards(array, pattern, iters_threshold=iters_threshold)
 

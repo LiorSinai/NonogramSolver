@@ -78,7 +78,7 @@ class Nonogram():
 
     def show_grid(self, grid=None, show_instructions=True, to_screen=True, to_file=False, symbols="x#.?"):
         if to_file:
-            file = open("nonogram.txt", "w")
+            file = open("nonogram_grid.txt", "w")
 
         grid = self.grid if grid is None else grid
         if show_instructions:
@@ -115,6 +115,14 @@ class Nonogram():
                 return False    
             if not self.is_valid_partial(arr[::-1], run[::-1]):
                 return False # from right
+        return True
+
+    def is_valid_partial_columns(self, grid=None):
+        if grid is None:
+            grid = self.grid
+        for arr, run in zip(list(zip(*grid)), self.runs_col):
+            if not self.is_valid_partial(arr, run): # from top only
+                return False    
         return True
 
     def _get_sequence(self, arr):
@@ -161,9 +169,13 @@ def encode_puzzle(filename, runs_row, runs_col, description="") -> None:
             file.write(s)
 
 
-def plot_nonogram(grid, ax=None, save=False, filename="nonogoram"):
+def plot_nonogram(grid, ax=None, save=False, filename="nonogoram_grid", 
+                 show_instructions=False, runs_row=None, runs_col=None):
+    n_large_puzzle  = 50
+    n_medium_puzzle = 30
+
     if not ax:
-        _, ax = plt.subplots()
+        _, ax = plt.subplots(figsize=(12, 9))
     n_rows, n_cols = len(grid), len(grid[0])
 
     # custom color map
@@ -175,25 +187,49 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram"):
     ax.imshow(grid, cmap=cmap, norm=norm, aspect='equal')
 
     # set grid lines. Majors must not overlap with minors
-    # intervals = 10
-    # step_major = max(min(n_rows, n_rows) // intervals, 1) # space out numbers for larger grid
-    # if step_major % 2 == 1:
-    #     step_major += 1 # always have an even step
-    step_major = 5
-    if min(n_rows, n_rows) // step_major < step_major:
-            step_major = 1
-    else:
-        while min(n_rows, n_rows) // step_major > step_major:
-            step_major += step_major
-    
     ax.set_xticks([x-0.5 for x in list(range(1, n_cols + 1))], minor=True)
-    ax.set_xticks(list(range(0, n_cols, step_major)), minor=False)
     ax.set_yticks([x-0.5 for x in list(range(1, n_rows + 1))], minor=True)
-    ax.set_yticks(list(range(0, n_rows, step_major)), minor=False) 
     plt.grid(which="minor", linewidth=1.1, color="k", alpha=0.7)
 
-    if save:
-        fig = plt.gcf()
-        fig.savefig(filename)
+    if show_instructions:
+        if runs_row is None or runs_col is None:
+            raise UserWarning("runs_row and runs_col must not be None if show_instructions=True")
+        ax.set_xticks(list(range(0, n_cols)), minor=False)
+        ax.set_yticks(list(range(0, n_rows)), minor=False) 
+        n = max(n_rows, n_cols)
+        if n > n_large_puzzle:
+            fontsize = 'xx-small'
+        elif n > n_medium_puzzle:
+            fontsize = 'medium'
+        else:
+            fontsize = 'large'
+        ax.set_yticklabels([','.join(map(str,r)) for r in runs_row],  fontdict={'fontsize': fontsize})
+        ax.set_xticklabels(['\n'.join(map(str,r)) for r in runs_col], fontdict={'fontsize': fontsize})
 
+        #Let the horizontal axes labeling appear on top.
+        ax.tick_params(top=True, bottom=False, labeltop=True, labelbottom=False)
+        plt.tight_layout() # change layout so all the vertical ticks are in view. SLOW
+    else:
+        # set major ticks at reasonable intervals
+        step_major = 5
+        if min(n_rows, n_rows) // step_major < step_major:
+                step_major = 1
+        else:
+            while min(n_rows, n_rows) // step_major > step_major:
+                step_major += step_major
+        ax.set_xticks(list(range(0, n_cols, step_major)), minor=False)
+        ax.set_yticks(list(range(0, n_rows, step_major)), minor=False) 
+
+    if save:
+        fig = ax.figure
+        fig.savefig(filename)
     return ax
+
+
+def update_nonogram_plot(grid, ax, save=False, filename="nonogoram_grid", plot_progess=True):
+    if not plot_progess:
+        return
+    ax.images[0].set_data(grid)
+    if save:
+        fig = ax.figure
+        fig.savefig(filename)

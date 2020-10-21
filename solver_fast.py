@@ -27,8 +27,8 @@ import time
 from copy import copy
 
 from nonogram import Nonogram, plot_nonogram
-from matcher import Match, find_match
-from matcher_nfa import Match, NonDeterministicFiniteAutomation
+#from matcher import Match, find_match
+from matcher_nfa import Match, find_match
 from guesser import rank_guesses, rank_guesses2
 
 
@@ -99,7 +99,6 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
 
     def left_rightmost_overlap(arr, runs):
         """Returns the overlap between the left-most and right-most fitting sequences"""
-        #find_match = NonDeterministicFiniteAutomation().find_match
         left = find_match(arr, runs)
         right = find_match(arr[::-1], runs[::-1])
         if left.is_match and right.is_match:
@@ -246,8 +245,8 @@ if __name__ == '__main__':
     r_col = [(1,),(1,),(2,),(4,),(7,),(9,),(2, 8),(1, 8),(8,),(1, 9),(2, 7),(3, 4),(6, 4),(8, 5),(1, 11),(1, 7),(8,),(1, 4, 8),(6, 8),(4, 7),(2, 4),(1, 4),(5,),(1, 4),(1,5),(7,),(5,),(3,),(1,),(1,)]
 
     # elephant
-    r_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
-    r_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
+    #r_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
+    #r_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
 
     # # ## chess board, multiple solutions
     #r_row = [(1,), (1,), (1,)]
@@ -284,18 +283,18 @@ if __name__ == '__main__':
     puzzle.set_grid(grid)
     end_time = time.time()
 
-    puzzle.show_grid(show_instructions=True, to_file=False, symbols="x#.?")
+    puzzle.show_grid(show_instructions=False, to_file=False, symbols="x#.?")
 
     print(puzzle.is_complete(), "{:.2f}%".format(puzzle.progress*100))
     print("time taken: {:.5f}s".format(end_time - start_time))
     print("solved with {} guesses".format(puzzle.guesses))
 
-    plot_nonogram(puzzle.grid)
+    plot_nonogram(puzzle.grid, show_instructions=True, runs_row=r_row, runs_col=r_col)
 
     if 1==1:
         start_time = time.time()
-        #filename = 'rosetta_code_puzzles.txt'
-        filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 
+        filename = 'rosetta_code_puzzles.txt'
+        #filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 
         with open(filename) as file:
             lines = file.read().split("\n")
             for i in range(0, len(lines), 3):
@@ -307,10 +306,10 @@ if __name__ == '__main__':
                 puzzle = Nonogram(r_row, r_col)
                 grid = solve_fast(puzzle)
                 puzzle.set_grid(grid)
-                puzzle.show_grid(show_instructions=True, to_file=False, symbols="x#.?")
+                puzzle.show_grid(show_instructions=False, to_file=False, symbols="x#.?")
                 print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
 
-                plot_nonogram(puzzle.grid)
+                plot_nonogram(puzzle.grid, show_instructions=True, runs_row=r_row, runs_col=r_col)
 
         print("time taken: {:.4f}s".format(time.time() - start_time))
 
