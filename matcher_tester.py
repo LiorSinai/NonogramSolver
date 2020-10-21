@@ -77,10 +77,9 @@ class TestMatcher(unittest.TestCase):
         m = self.matcher(row[::-1], run[::-1]).match[::-1]
         m = ''.join([reverse_map[x] for x in m])
         self.assertEqual(m, "---#-------------#-#####")
-
-    
+        
     def worst_case(self):
-        pattern = (2, 5, 3, 1) 
+        pattern = (2, 5, 3, 2) 
         row = [EITHER] * 19 + [BLACK] # lots of backtracking because last result is false
         answer = [] 
         for p in pattern[:-1]:

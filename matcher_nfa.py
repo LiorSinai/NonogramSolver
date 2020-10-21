@@ -137,6 +137,7 @@ class NonDeterministicFiniteAutomation():
         match = special_matches(array, pattern)
         if match.is_match:
             return match
+        min_length = sum(pattern) + len(pattern) -1
 
         self.construct(pattern) # create the state firsts
 
@@ -159,7 +160,7 @@ class NonDeterministicFiniteAutomation():
                             match_final += [WHITE] * (len(array) - idx - 1)
                             return Match(match_final, pattern=self.pattern)
                         # else: its not added to the stack
-                    elif s and s.id not in stack:
+                    elif s and s.id not in stack and not (s.id==2 and len(array) - (idx+1)< min_length-1):
                         for_new_stack.append((s.id, match + [s.value]))
                         #stack[s.id] = match + [s.value]
             for key, val in for_new_stack:

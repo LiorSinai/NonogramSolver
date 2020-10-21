@@ -136,6 +136,8 @@ class Nonogram():
 
     def is_valid_line(self, arr, target):
         sequence, _ = self._get_sequence(arr)
+        if not sequence: # can match either a zero or nothing
+            return list(target) == [] or list(target) == [0]
         return sequence == list(target)
 
     def is_valid_partial(self, arr, target):   
@@ -165,8 +167,8 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram"):
     n_rows, n_cols = len(grid), len(grid[0])
 
     # custom color map
-    cmap = matplotlib.colors.ListedColormap(['black', 'white', 'cornflowerblue'])
-    boundaries = [0, BLACK+0.01, WHITE+0.01, EITHER]
+    cmap = matplotlib.colors.ListedColormap(['red', 'black', 'white', 'cornflowerblue'])
+    boundaries = [0, 0.1, BLACK+0.01, WHITE+0.01, EITHER]
     norm = matplotlib.colors.BoundaryNorm(boundaries, cmap.N, clip=True)
 
     # plot

@@ -32,8 +32,13 @@ from matcher_nfa import Match, NonDeterministicFiniteAutomation
 from guesser import rank_guesses, rank_guesses2
 
 
-def solve_fast(nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False):
+class SolvingError(Exception):
+    pass
+
+def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False):
     "Solve using logic and constraint propagation. Might not work"
+
+    # important: pass one Nonogram object around but a separate grid object is edited on each recursive call
 
     def simple_filler(arr, runs):
         """ fill in black gaps and whites ending sequences. The overlap algorithm might miss these"""
@@ -100,8 +105,9 @@ def solve_fast(nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=Fa
         if left.is_match and right.is_match:
             allowed = overlap(left.match, right.match[::-1])
         else:
-            allowed = arr[:]
+            raise SolvingError("Left or right most match not found. A mistake was made")
         return allowed
+
 
     def splitter(arr, runs):
         """split rows at the max element. Then the strategies can be applied to each division. 
@@ -155,8 +161,7 @@ def solve_fast(nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=Fa
     # extract values from Nonogram object
     n_rows, n_cols = nonogram_.n_rows, nonogram_.n_cols
     runs_row, runs_col = nonogram_.runs_row, nonogram_.runs_col
-    grid = [row[:] for row in nonogram_.grid]
-
+    
     if rows_to_edit is None and columns_to_edit is None:
         # initialise
         # rows, columns for constraint propagation to be applied
@@ -180,13 +185,9 @@ def solve_fast(nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=Fa
         rows_to_edit = set()
     #print("\nconstraint propagation done in {} sweeps".format(sweeps))
 
-    if not nonogram_.is_valid_partial_grid(grid):
-        return grid
-
-
     def probe(grid):
         """ solve every guess find the guess which makes the most progress on the next guess"""
-        rankings = list(set(rank_guesses2(grid, runs_row, runs_col) + rank_guesses(grid))) 
+        rankings = rank_guesses(grid)
         max_solve = 0
         guess = None
         for rank, ij in rankings[:10]: # only probe the top 10
@@ -194,8 +195,12 @@ def solve_fast(nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=Fa
             for value in [BLACK, WHITE]:
                 grid_next = [row[:] for row in grid]
                 grid_next[i][j] = value
-                grid_next = solve_fast_(grid_next, {i}, {j}, make_guess=False)
-                progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
+                try:
+                    grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False)
+                    progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
+                except SolvingError:
+                    progress = 0
+                    pass
                 if progress > max_solve:
                     max_solve = progress
                     guess = i,j, value, rank, progress
@@ -203,23 +208,33 @@ def solve_fast(nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=Fa
 
 
     if not nonogram_.is_complete(grid) and make_guess:
-        rankings = rank_guesses(grid)
-        if rankings:
-            rank, ij = rankings[0]
-            i, j = ij
-            # make a guess
-            #i,j, value, rank, prog = probe(grid)
-            progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
-            print(nonogram_.guesses, "{:.5f}".format(progress*100))
-            nonogram_.guesses += 1 # only the first one is a guess, the second time we know it is right
-            for cell in [BLACK, WHITE]: 
-                nonogram_next = copy(nonogram_)
-                nonogram_next.grid = [row[:] for row in grid]
-                nonogram_next.grid[i][j] = cell
-                grid_next = solve_fast(nonogram_next, {i}, {j}, make_guess = True)
-                if nonogram_next.is_complete(grid_next):
+        rankings = rank_guesses(grid) 
+        rank, ij = rankings[0]
+        i, j = ij
+        # make a guess
+        # guess =  probe(grid) 
+        # if guess is None: 
+        #     raise SolvingError("all guesses from this configuration are are wrong")
+        # i,j, value, rank, prog = guess
+        progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
+        print(nonogram_.guesses, "{:.5f}%".format(progress*100))
+        nonogram_.guesses += 1 # only the first one is a guess, the second time we know it is right
+        for cell in [BLACK, WHITE]: 
+            grid_next = [row[:] for row in grid]
+            grid_next[i][j] = cell
+            try:
+                grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True)
+                if nonogram_.is_complete(grid_next):
                     grid = grid_next
-                    break     
+                    break   
+            except SolvingError:
+                pass
+                 
+    return grid
+
+def solve_fast(nonogram_, make_guess=False):
+    grid = [row[:] for row in nonogram_.grid]
+    grid = solve_fast_(grid, nonogram_, make_guess=make_guess)
 
     return grid
 
@@ -235,8 +250,8 @@ if __name__ == '__main__':
     r_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
 
     # # ## chess board, multiple solutions
-    r_row = [(1,), (1,), (1,)]
-    r_col = [(1,), (1,), (1,)]
+    #r_row = [(1,), (1,), (1,)]
+    #r_col = [(1,), (1,), (1,)]
 
     # # Bonus
     #r_row = [(3,),(1,),(1,),(1,1),(1,),(1,1,4,1),(2,1,1,1,4),(1,1,1,1,1,1),(1,1,1,1,1),(2,1,1,1,1),(1,4,2,1,1,1),(1,3,1,4,1)]
@@ -271,7 +286,7 @@ if __name__ == '__main__':
 
     puzzle.show_grid(show_instructions=True, to_file=False, symbols="x#.?")
 
-    print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
+    print(puzzle.is_complete(), "{:.2f}%".format(puzzle.progress*100))
     print("time taken: {:.5f}s".format(end_time - start_time))
     print("solved with {} guesses".format(puzzle.guesses))
 

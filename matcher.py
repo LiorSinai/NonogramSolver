@@ -5,7 +5,7 @@ Mock regex
 
 """
 
-from Match import Match, minimum_sequence
+from Match import Match, minimum_sequence, listRightIndex
 
 BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
@@ -14,10 +14,6 @@ EITHER = 3  # = 11 in binary
 def fits(a, b):
     return all(x & y for x, y in zip(a, b))
 
-
-def listRightIndex(array, value):
-    """Returns the index for the right-most matching value"""
-    return len(array) - array[-1::-1].index(value) -1
 
 
 def find_match(array, pattern):
