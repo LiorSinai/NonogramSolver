@@ -22,30 +22,20 @@ EITHER = 3  # = 11 in binary
 from match import Match, minimum_sequence, special_matches
 
 class State():
-    def __init__(self, value, prev=None, id=0, qualifier=None):
-        self.prev = prev
-        self.next  = None
-        self.next1 = None # only used if a split
-        self.qualifier = qualifier
+    def __init__(self, symbol, id=0, qualifier=None):
+        self.symbol = symbol
+        self.id = id
+        self.qualifier = qualifier # purely a description, not for functional purposes
         
-        self.value = value
+        self.transitions = []
         self.is_final = False # only true in the end state
 
-        self.id = id
-
-    def transition(self, value):
-        if self.qualifier:
-            # make a split
-            s1 = self.next if (self.next and self.next.value & value) else None
-            if self.next1:
-                s2 = self.next1 if (self.next1 and self.next1.value & value) else None
-            else:
-                s2 = None
-            return s1, s2         
-        elif self.next.value == self.next.value & value:
-            return self.next, self.next1
-        else:
-            return None, None
+    def transition(self, symbol):
+        next_states = []
+        for state in self.transitions:
+            if state.symbol & symbol:
+                next_states.append(state)
+        return next_states
 
 
 class NonDeterministicFiniteAutomation():
@@ -57,41 +47,51 @@ class NonDeterministicFiniteAutomation():
     def convert_pattern(self, pattern):
         fragments = [WHITE, "*"]
         for p in pattern[:-1]:
-            fragments += [BLACK] * p + [WHITE, "+"]
+            fragments += [BLACK, "."] * p + [WHITE, "+", "."]
         if pattern:
-            fragments += [BLACK] * pattern[-1] # skip the last white *
+            fragments += [BLACK, '.'] * pattern[-1] # skip the last white *
         return fragments
 
     def construct(self, pattern):
         # reset self
         self.pattern = pattern
         self.states = [] 
-        self.state_id = 0
         
-        start_state = State(None, prev=None, id=self.state_id, qualifier ="start")
-        self.states.append(start_state)
+        start = State(None,  id=self.state_id, qualifier ="start")
+        end   = State(None, id=1) # continiously update end, since Python doesn't allow dangling pointers
+        self.states = [start, end]
 
+        self.state_id = 1
+        stack = [end, start] 
         for symbol in self.convert_pattern(pattern):
-            self.add_state(symbol)
+            self.add_state(symbol, stack)
+        self.states  = self.states[:-1] # chop off the last unneccessary end
         self.states[-1].is_final = True  
 
-        for state in self.states:
-            if state.qualifier == "*":  
-                prev_state = state.prev
-                next_state = state.next
-                prev_state.next  = next_state # option to skip this state
-                prev_state.next1 = state      # this was prev_state.next originally. Moved to find left-most match (blacks match first)
-
-    def add_state(self, symbol):
-        prev_state = self.states[-1]
-        if symbol in ["+", "*"]:
-            prev_state.next1 = prev_state  # loop back to self
-            prev_state.qualifier = symbol
+    def add_state(self, symbol, stack):
+        if symbol in ["+", "*"]:  # one or more
+            state = stack[1]
+            state.transitions.append(state) # loop back to self
+            state.qualifier = symbol
+            if symbol == "*": # zero or more
+                state = stack.pop(1)  # remove this state because it'll be skipped
+                prev_state = stack[1]
+                next_state = stack[0]
+                state.transitions.insert(0, next_state)
+                prev_state.transitions.insert(0, state)
+        elif symbol == ".": # concatenation
+            state = stack[1]
+            prev_state = stack.pop(2)
+            prev_state.transitions.insert(0, state)
         else:
+            # change end to a state
+            state = stack[0]
+            state.symbol = symbol
+            # add a new end
             self.state_id += 1  
-            state = State(symbol, prev=prev_state, id=self.state_id)
-            self.states.append(state)
-            prev_state.next = state  # patch previous state
+            end = State(None, id=self.state_id)
+            self.states.append(end)
+            stack.insert(0, end)
 
     def find_match_BFS(self, array, pattern):
         """ breadth first search, very slow, O(2^n) time """
@@ -119,13 +119,13 @@ class NonDeterministicFiniteAutomation():
                 for s in next_state:
                     if s and s.is_final:
                         if array[idx+1:].count(BLACK) == 0:
-                            match_final = match + [s.value]
+                            match_final = match + [s.symbol]
                             match_final += [WHITE] * (len(array) - idx - 1)
                             return Match(match_final, pattern=self.pattern)
                         # else: its not added to the stack
                     elif s:
                         stack.append(s.id)
-                        matches.append(match + [s.value])
+                        matches.append(match + [s.symbol])
 
         return Match(pattern=self.pattern) # no match
 
@@ -156,13 +156,13 @@ class NonDeterministicFiniteAutomation():
                 for s in next_state:
                     if s and s.is_final:
                         if array[idx+1:].count(BLACK) == 0:
-                            match_final = match + [s.value]
+                            match_final = match + [s.symbol]
                             match_final += [WHITE] * (len(array) - idx - 1)
                             return Match(match_final, pattern=self.pattern)
                         # else: its not added to the stack
                     elif s and s.id not in stack and not (s.id==2 and len(array) - (idx+1)< min_length-1):
-                        for_new_stack.append((s.id, match + [s.value]))
-                        #stack[s.id] = match + [s.value]
+                        for_new_stack.append((s.id, match + [s.symbol]))
+                        #stack[s.id] = match + [s.symbol]
             for key, val in for_new_stack:
                 if key not in stack:
                     stack[key] = val
@@ -208,3 +208,11 @@ if __name__ == '__main__':
     m = matcher(row[::-1], run[::-1]).match[::-1]
     m = ''.join([reverse_map[x] for x in m])
     print(m == "---#-------------#-#####", m)
+
+    # import re
+    # pattern = "[- ]*"
+    # for p in run:
+    #     pattern += "([# ]){" + str(p) + "}" + "([- ]+)"
+    # pattern = pattern[:-2] + "*)"
+    # m = re.fullmatch(pattern, s)
+    # print(m)
