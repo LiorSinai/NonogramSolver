@@ -19,7 +19,7 @@ Notation
 
 import matplotlib.pyplot as plt
 import matplotlib.colors
-
+from datetime import datetime
 
 BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
@@ -78,7 +78,8 @@ class Nonogram():
 
     def show_grid(self, grid=None, show_instructions=True, to_screen=True, to_file=False, symbols="x#.?"):
         if to_file:
-            file = open("nonogram_grid.txt", "w")
+            filename = "nonogram_" + datetime.now().strftime("%Y%m%d_%H%M") + '.txt'
+            file = open(filename, "w")
 
         grid = self.grid if grid is None else grid
         if show_instructions:
@@ -169,7 +170,7 @@ def encode_puzzle(filename, runs_row, runs_col, description="") -> None:
             file.write(s)
 
 
-def plot_nonogram(grid, ax=None, save=False, filename="nonogoram_grid", 
+def plot_nonogram(grid, ax=None, save=False, filename=None, 
                  show_instructions=False, runs_row=None, runs_col=None):
     n_large_puzzle  = 50
     n_medium_puzzle = 30
@@ -177,6 +178,8 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram_grid",
     if not ax:
         _, ax = plt.subplots(figsize=(12, 9))
     n_rows, n_cols = len(grid), len(grid[0])
+    if not filename:
+        filename = "nonogram_" + datetime.now().strftime("%Y%m%d_%H%M")
 
     # custom color map
     cmap = matplotlib.colors.ListedColormap(['red', 'black', 'white', 'cornflowerblue'])
@@ -226,7 +229,9 @@ def plot_nonogram(grid, ax=None, save=False, filename="nonogoram_grid",
     return ax
 
 
-def update_nonogram_plot(grid, ax, save=False, filename="nonogoram_grid", plot_progess=True):
+def update_nonogram_plot(grid, ax, save=False, filename=NotImplemented, plot_progess=True):
+    if not filename:
+        filename = "nonogram_" + datetime.now().strftime("%Y%m%d_%H%M")
     if not plot_progess:
         return
     ax.images[0].set_data(grid)
