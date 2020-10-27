@@ -117,7 +117,7 @@ def solve(nonogram_):
     grid = [row[:] for row in nonogram_.grid]
 
     # initialise plot
-    save, instruct, plot_progess =True, True, True # seriously slows down code
+    save, instruct, plot_progess =True, True, False # seriously slows down code
     if plot_progess:
         ax = plot_nonogram(grid, save=save, filename="solving_sweep_0", show_instructions=instruct, runs_row=runs_row, runs_col=runs_col)
     else:

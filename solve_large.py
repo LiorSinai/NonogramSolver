@@ -81,11 +81,11 @@ def decode_solution(solution, n_rows, n_cols):
 
 if __name__ == '__main__':
     #file_name = "lost_puzzle.txt"
-    #file_name = "beach_puzzle.txt" # takes 343 guess
+    file_name = "beach_puzzle.txt" # takes 343 guess
     #file_name = "artist_puzzle.txt" # faster with match_forwards than match backwards. NFA is of course the fastest
     #file_name = "balance_puzzle.txt"
     #file_name = "warship_puzzle.txt"
-    file_name = "bear.txt"
+    #file_name = "bear.txt"
 
     # the webpbn puzzles are super hard
     #file_name = "webpbn-01611-For  merilinnuke" +'.txt'

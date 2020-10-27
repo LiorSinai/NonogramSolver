@@ -31,17 +31,19 @@ def listRightIndex(array, value):
 
 def special_matches(array, pattern):
     # special case optimisation
+    count_b = array.count(BLACK)
+    count_w = array.count(WHITE) 
     if not pattern:
         # match an empty sequence
-        if array.count(BLACK) == 0:
+        if count_b == 0:
             match = [WHITE] * len(array)
             return Match(match, pattern=pattern)     
         else:
             return Match(pattern=pattern) #no match
-    elif array.count(BLACK) == 0 and array.count(WHITE) ==0:
+    elif count_b == 0 and count_w ==0:
         # construct minimum pattern
         return Match(minimum_sequence(pattern, len(array)), pattern=pattern)
-    elif array.count(BLACK) > 0 and array.count(WHITE) ==0:
+    elif count_b > 0 and count_w ==0:
         # check for near worst case, where have nothing but the last part of the sequence is on the other end
         min_length = sum(pattern) + (len(pattern)-1) # 1 white interval
         idx1 = array.index(BLACK)

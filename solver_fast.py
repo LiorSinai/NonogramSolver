@@ -63,7 +63,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
                 else:
                     break # too many unknowns
         
-        # put whites next to any runs. Very special case
+        # put whites next to any 1 runs. Very special case
         if all([r == 1 for r in runs]):
             for i in range(len(arr)):
                 if arr[i] == BLACK:
@@ -125,20 +125,25 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
             return [(arr, runs)]
                     
     def apply_strategies(array, runs):
-        allowed = [EITHER] * len(array)
-        allowed = [x & y for x, y in zip(allowed, left_rightmost_overlap(array, runs))]
-        allowed = [x & y for x, y in zip(allowed, simple_filler(array, runs))]
-        allowed = [x & y for x, y in zip(allowed, simple_filler(array[::-1], runs[::-1])[::-1])] # going from right
-        return allowed
-
-    def fix_row(i):
-        row = grid[i]
-        allowed = []
-        for split in splitter(row, runs_row[i]):
+        # allowed_full = [EITHER] * len(array)
+        # allowed_full = [x & y for x, y in zip(allowed_full, left_rightmost_overlap(array, runs))]
+        # allowed_full = [x & y for x, y in zip(allowed_full, simple_filler(array, runs))]
+        # allowed_full = [x & y for x, y in zip(allowed_full, simple_filler(array[::-1], runs[::-1])[::-1])]
+        allowed_full = []
+        for split in splitter(array, runs):
             segment, runs_segment = split
             if not segment:
                 continue
-            allowed.extend(apply_strategies(segment, runs_segment))
+            allowed = [EITHER] * len(segment)
+            allowed = [x & y for x, y in zip(allowed, left_rightmost_overlap(segment, runs_segment))]
+            allowed = [x & y for x, y in zip(allowed, simple_filler(segment, runs_segment))]
+            allowed = [x & y for x, y in zip(allowed, simple_filler(segment[::-1], runs_segment[::-1])[::-1])] # going from right
+            allowed_full.extend(allowed)
+        return allowed_full
+
+    def fix_row(i):
+        row = grid[i]
+        allowed = apply_strategies(row, runs_row[i])
         for j in range(n_cols):
             if row[j] != allowed[j] and allowed[j]!=EITHER:
                 columns_to_edit.add(j)
@@ -146,12 +151,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
     
     def fix_col(j):
         col = [grid[i][j] for i in range(n_rows)]
-        allowed = []
-        for split in splitter(col, runs_col[j]):
-            segment, runs_segment = split
-            if not segment:
-                continue
-            allowed.extend(apply_strategies(segment, runs_segment))
+        allowed = apply_strategies(col, runs_col[j])
         for i in range(n_rows):
             if col[i] != allowed[i] and allowed[i]!=EITHER:
                 rows_to_edit.add(i)
@@ -233,6 +233,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
 
 def solve_fast(nonogram_, make_guess=False):
     grid = [row[:] for row in nonogram_.grid]
+    print("solving ...")
     grid = solve_fast_(grid, nonogram_, make_guess=make_guess)
 
     return grid
@@ -245,8 +246,8 @@ if __name__ == '__main__':
     r_col = [(1,),(1,),(2,),(4,),(7,),(9,),(2, 8),(1, 8),(8,),(1, 9),(2, 7),(3, 4),(6, 4),(8, 5),(1, 11),(1, 7),(8,),(1, 4, 8),(6, 8),(4, 7),(2, 4),(1, 4),(5,),(1, 4),(1,5),(7,),(5,),(3,),(1,),(1,)]
 
     # elephant
-    #r_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
-    #r_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
+    r_row = [(3,),(4,2),(6,6),(6,2,1),(1,4,2,1), (6,3,2),(6,7),(6,8),(1,10),(1,10), (1,10),(1,1,4,4),(3,4,4),(4,4),(4,4)]
+    r_col = [(1,),(11,),(3,3,1),(7,2),(7,), (15,), (1,5,7),(2,8),(14,),(9,), (1,6),(1,9),(1,9),(1,10),(12,)]
 
     # # ## chess board, multiple solutions
     #r_row = [(1,), (1,), (1,)]
@@ -257,8 +258,8 @@ if __name__ == '__main__':
     #r_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
 
     # # aeroplane -> solve fast doesn't work. https://www.youtube.com/watch?v=MZQDDzzRBvI
-    r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
-    r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
+    #r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
+    #r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
 
     ## https://www.researchgate.net/publication/290264363_On_the_Difficulty_of_Nonograms
     ## Batenburg construction -> requires 120 sweeps
@@ -289,12 +290,12 @@ if __name__ == '__main__':
     print("time taken: {:.5f}s".format(end_time - start_time))
     print("solved with {} guesses".format(puzzle.guesses))
 
-    plot_nonogram(puzzle.grid, show_instructions=True, runs_row=r_row, runs_col=r_col)
+    plot_nonogram(puzzle.grid, show_instructions=True, save=False, runs_row=r_row, runs_col=r_col)
 
     if 1==1:
         start_time = time.time()
-        filename = 'rosetta_code_puzzles.txt'
-        #filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 
+        #filename = 'rosetta_code_puzzles.txt'
+        filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 
         with open(filename) as file:
             lines = file.read().split("\n")
             for i in range(0, len(lines), 3):
@@ -309,7 +310,7 @@ if __name__ == '__main__':
                 puzzle.show_grid(show_instructions=False, to_file=False, symbols="x#.?")
                 print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
 
-                plot_nonogram(puzzle.grid, show_instructions=True, runs_row=r_row, runs_col=r_col)
+                plot_nonogram(puzzle.grid, show_instructions=True, save=False, runs_row=r_row, runs_col=r_col)
 
         print("time taken: {:.4f}s".format(time.time() - start_time))
 

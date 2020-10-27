@@ -52,7 +52,7 @@ class NonDeterministicFiniteAutomation():
             fragments += [BLACK, '.'] * pattern[-1] # skip the last white *
         return fragments
 
-    def construct(self, pattern):
+    def compile(self, pattern):
         # reset self
         self.pattern = pattern
         self.states = [] 
@@ -101,7 +101,7 @@ class NonDeterministicFiniteAutomation():
         if match.is_match:
             return match
 
-        self.construct(pattern) # create the state firsts
+        self.compile(pattern) # create the state firsts
 
         # simulate finite state machine
         idx = - 1
@@ -139,33 +139,29 @@ class NonDeterministicFiniteAutomation():
             return match
         min_length = sum(pattern) + len(pattern) -1
 
-        self.construct(pattern) # create the state firsts
+        self.compile(pattern) # create the state firsts
 
         # simulate finite state machine. Only keeps one path, not necessarily the left-most
         idx = - 1
         stack = {0: []} # state_id: match  
+        new_stack = {}
         while idx < len(array) - 1 and stack:
             idx += 1
-            state_ids = list(stack.keys())
-            for_new_stack = []
-            for state_id in state_ids:
+            for state_id, match in stack.items():
                 # advance each one at a time
-                match = stack.pop(state_id)
                 state = self.states[state_id]
-                next_state = state.transition(array[idx])
-                for s in next_state:
-                    if s and s.is_final:
-                        if array[idx+1:].count(BLACK) == 0:
-                            match_final = match + [s.symbol]
-                            match_final += [WHITE] * (len(array) - idx - 1)
-                            return Match(match_final, pattern=self.pattern)
-                        # else: its not added to the stack
-                    elif s and s.id not in stack and not (s.id==2 and len(array) - (idx+1)< min_length-1):
-                        for_new_stack.append((s.id, match + [s.symbol]))
-                        #stack[s.id] = match + [s.symbol]
-            for key, val in for_new_stack:
-                if key not in stack:
-                    stack[key] = val
+                for s in state.transitions:
+                    if s.symbol & array[idx]:
+                        if s.is_final:
+                            if array[idx+1:].count(BLACK) == 0:
+                                match_final = match + [s.symbol]
+                                match_final += [WHITE] * (len(array) - idx - 1)
+                                return Match(match_final, pattern=self.pattern)
+                            # else: its not added to the stack
+                        elif (s.id==state.id or s.id not in new_stack) and not (s.id==2 and len(array) - (idx+1)< min_length-1):
+                            new_stack[s.id] = match + [s.symbol]
+            stack = new_stack;
+            new_stack = {};
 
         return Match(pattern=self.pattern) # no match
 
