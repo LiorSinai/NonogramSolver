@@ -80,15 +80,15 @@ def decode_solution(solution, n_rows, n_cols):
     return grid
 
 if __name__ == '__main__':
-    #file_name = "lost_puzzle.txt"
-    file_name = "beach_puzzle.txt" # takes 343 guess
-    #file_name = "artist_puzzle.txt" # faster with match_forwards than match backwards. NFA is of course the fastest
-    #file_name = "balance_puzzle.txt"
-    #file_name = "warship_puzzle.txt"
+    #file_name = "lost.txt"
+    #file_name = "beach.txt" # takes 343 guess
+    #file_name = "artist.txt" # faster with match_forwards than match backwards. NFA is of course the fastest
+    file_name = "balance.txt"
+    #file_name = "warship.txt"
     #file_name = "bear.txt"
 
     # the webpbn puzzles are super hard
-    #file_name = "webpbn-01611-For  merilinnuke" +'.txt'
+    #file_name = "webpbn-02413-smoke" +'.txt'
 
     file_name = 'puzzles/'+ file_name
     runs_row, runs_col, solution = decode(file_name)
