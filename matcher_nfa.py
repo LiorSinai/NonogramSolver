@@ -131,17 +131,11 @@ class NonDeterministicFiniteAutomation():
 
 
     def find_match(self, array, pattern):
-        """ finds a minimum length match, not necessarily the left-most. Very fast, O(n^2) time """
-
-        # special case optimisation
-        match = special_matches(array, pattern)
-        if match.is_match:
-            return match
+        """ finds a minimum length, left-most match. Very fast, O(n*m) time """
         min_length = sum(pattern) + len(pattern) -1
+        self.compile(pattern) # create the states first
 
-        self.compile(pattern) # create the state firsts
-
-        # simulate finite state machine. Only keeps one path, not necessarily the left-most
+        # simulate finite state machine. Only keeps one path per state.
         idx = - 1
         stack = {0: []} # state_id: match  
         new_stack = {}
@@ -165,7 +159,35 @@ class NonDeterministicFiniteAutomation():
 
         return Match(pattern=self.pattern) # no match
 
+    def find_match_DFS(self, array, pattern):
+        """ Depth first search, very slow"""
+        def simulate(state_id, match, idx):
+            if idx >= len(array):
+                return Match(pattern=self.pattern) # no match
+            state = self.states[state_id]
+            for s in state.transitions:
+                if s.symbol & array[idx]:
+                    if s.is_final:
+                        if array[idx+1:].count(BLACK) == 0:
+                            match_final = match + [s.symbol]
+                            match_final += [WHITE] * (len(array) - idx - 1)
+                            return Match(match_final, pattern=self.pattern)
+                        # else: its not added to the stack
+                    else:
+                        ans = simulate(s.id, match + [s.symbol], idx+1)
+                        if ans.is_match:
+                            return ans
+            return Match(pattern=self.pattern) # no match
+        min_length = sum(pattern) + len(pattern) -1
+        self.compile(pattern) # create the state first
+
+        return simulate(0, [], 0) # start recursive call
+
 def find_match(array, pattern):
+    # special case optimisation
+    match = special_matches(array, pattern)
+    if match.is_match:
+        return match
     nfa = NonDeterministicFiniteAutomation()
     return nfa.find_match(array, pattern)
             
