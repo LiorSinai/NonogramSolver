@@ -39,8 +39,9 @@ def rank_solved_neighbours(grid):
                 
             rankings.append((rank, (i, j)))
 
-    #rankings.sort(reverse=True, key=lambda x: x[0])
     rankings = [x for x in rankings if x[0] == rank_max]
+    #rankings.sort(reverse=True, key=lambda x: x[0]) 
+    #rankings = [x for x in rankings if x[0] >= 2]
     return rankings
 
 

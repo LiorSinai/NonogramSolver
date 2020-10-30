@@ -28,14 +28,13 @@ from copy import copy
 
 from nonogram import Nonogram, plot_nonogram, update_nonogram_plot
 #from matcher import Match, find_match
-from matcher_nfa import Match, find_match
+from matcher_nfa import Match, find_match, NonDeterministicFiniteAutomation
 from guesser import rank_solved_neighbours, rank_guesses2
-
 
 class SolvingError(Exception):
     pass
 
-def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False):
+def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False, NFA=None):
     "Solve using logic and constraint propagation. Might not work"
 
     # important: pass one Nonogram object around but a separate grid object is edited on each recursive call
@@ -99,8 +98,8 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
 
     def left_rightmost_overlap(arr, runs):
         """Returns the overlap between the left-most and right-most fitting sequences"""
-        left = find_match(arr, runs)
-        right = find_match(arr[::-1], runs[::-1])
+        left = NFA.find_match(arr, runs)
+        right = NFA.find_match(arr[::-1], runs[::-1])
         if left.is_match and right.is_match:
             allowed = overlap(left.match, right.match[::-1])
         else:
@@ -126,7 +125,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
                     
     def apply_strategies(array, runs):
         # allowed_full = [EITHER] * len(array)
-        # allowed_full = [x & y for x, y in zip(allowed_full, left_rightmost_overlap(array, runs))]
+        # allowed_full = [x & y for x, y in zip(allowed_full, left_rightmost_overlap(tuple(array), tuple(runs)))]
         # allowed_full = [x & y for x, y in zip(allowed_full, simple_filler(array, runs))]
         # allowed_full = [x & y for x, y in zip(allowed_full, simple_filler(array[::-1], runs[::-1])[::-1])]
         allowed_full = []
@@ -135,7 +134,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
             if not segment:
                 continue
             allowed = [EITHER] * len(segment)
-            allowed = [x & y for x, y in zip(allowed, left_rightmost_overlap(segment, runs_segment))]
+            allowed = [x & y for x, y in zip(allowed, left_rightmost_overlap(tuple(segment), tuple(runs_segment)))]
             allowed = [x & y for x, y in zip(allowed, simple_filler(segment, runs_segment))]
             allowed = [x & y for x, y in zip(allowed, simple_filler(segment[::-1], runs_segment[::-1])[::-1])] # going from right
             allowed_full.extend(allowed)
@@ -204,7 +203,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
                 grid_next = [row[:] for row in grid]
                 grid_next[i][j] = value
                 try:
-                    grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False)
+                    grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False, NFA=NFA)
                     progress = 1 - sum(row.count(EITHER) for row in grid_next)/(n_rows * n_cols)
                 except SolvingError:
                     progress = 0
@@ -237,7 +236,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
             grid_next = [row[:] for row in grid]
             grid_next[i][j] = cell
             try:
-                grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True)
+                grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True, NFA=NFA)
                 if nonogram_.is_complete(grid_next):
                     grid = grid_next
                     break   
@@ -249,7 +248,8 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
 def solve_fast(nonogram_, make_guess=False):
     grid = [row[:] for row in nonogram_.grid]
     print("solving ...")
-    grid = solve_fast_(grid, nonogram_, make_guess=make_guess)
+    NFA = NonDeterministicFiniteAutomation()
+    grid = solve_fast_(grid, nonogram_, make_guess=make_guess, NFA=NFA)
 
     return grid
 

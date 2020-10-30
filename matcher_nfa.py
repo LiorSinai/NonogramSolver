@@ -20,6 +20,7 @@ WHITE = 2   # = 10 in binary
 EITHER = 3  # = 11 in binary
 
 from match import Match, minimum_sequence, special_matches
+from functools import lru_cache
 
 class State():
     def __init__(self, symbol, id=0, qualifier=None):
@@ -129,11 +130,11 @@ class NonDeterministicFiniteAutomation():
 
         return Match(pattern=self.pattern) # no match
 
-
+    @lru_cache(None)
     def find_match(self, array, pattern):
         """ finds a minimum length, left-most match. Very fast, O(n*m) time """
-        min_length = sum(pattern) + len(pattern) -1
         self.compile(pattern) # create the states first
+        min_length = len(self.states) - 2 #= sum(pattern) + len(pattern) -1 
 
         # simulate finite state machine. Only keeps one path per state.
         idx = - 1
@@ -152,7 +153,7 @@ class NonDeterministicFiniteAutomation():
                                 match_final += [WHITE] * (len(array) - idx - 1)
                                 return Match(match_final, pattern=self.pattern)
                             # else: its not added to the stack
-                        elif (s.id==state.id or s.id not in new_stack) and not (s.id==2 and len(array) - (idx+1)< min_length-1):
+                        elif (s.id==state.id or s.id not in new_stack):# and (len(array) - (idx)) >= (min_length - s.id + 1):
                             new_stack[s.id] = match + [s.symbol]
             stack = new_stack;
             new_stack = {};
