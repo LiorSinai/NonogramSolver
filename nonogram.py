@@ -205,7 +205,7 @@ def plot_nonogram(grid, ax=None, save=False, filename=None,
         elif n > n_medium_puzzle:
             fontsize = 'medium'
         else:
-            fontsize = 'large'
+            fontsize = 'xx-large'
         ax.set_yticklabels([','.join(map(str,r)) for r in runs_row],  fontdict={'fontsize': fontsize})
         ax.set_xticklabels(['\n'.join(map(str,r)) for r in runs_col], fontdict={'fontsize': fontsize})
 

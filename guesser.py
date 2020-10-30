@@ -16,30 +16,39 @@ def argsort(array, reverse=False):
     return  sorted(range(len(array)), key = lambda x: array[x], reverse=reverse)
 
 
-def rank_guesses(grid):
+def rank_solved_neighbours(grid):
     """ Give a heuristic ranking for guesses
     - 2-4 neighbor cells are solved https://webpbn.com/pbnsolve.html
     """
     n_rows, n_cols = len(grid), len(grid[0])
     rankings = []
-    # 2-4 rankings
+    rank_max = 0
+    # increase rank for each solved neighbour
     for idx in range(n_cols * n_rows):
         i, j = idx // n_cols, idx % n_cols
         rank = 0
         if grid[i][j] == EITHER:
             neighbours = [(i + o1, j + o2) for o1, o2 in ((-1, 0), (+1, 0), (0, -1), (0, +1))]
             for i_n, j_n in neighbours:
-                # increase rank if a neighbour is solved. 
                 if (i_n >= 0 and i_n < n_rows) and (j_n >= 0 and j_n < n_cols) and (grid[i_n][j_n] != EITHER):
-                    rank += 1
-            # increase rank if on edge -> partial validation is from edges
+                    rank += 1   # increase rank if a neighbour is solved. 
+            # increase rank if on edge -> these count as "solved" cells
             rank += (i == 0 or i == n_rows - 1)
             rank += (j == 0 or j == n_cols - 1)
+            rank_max = max(rank, rank_max)
                 
             rankings.append((rank, (i, j)))
 
-    rankings.sort(reverse=True, key=lambda x: x[0])
+    #rankings.sort(reverse=True, key=lambda x: x[0])
+    rankings = [x for x in rankings if x[0] == rank_max]
     return rankings
+
+
+def score_Wolter(line, runs):
+    """ Jan Wolters adhoc scoring algorithm. Favours lines with lower slack (free whites) and fewer clues"""
+    free_whites = len(line) - sum(runs) - line.count(WHITE)
+    return 2*len(runs) + free_whites
+
 
 def get_sequence(arr):
     white = True

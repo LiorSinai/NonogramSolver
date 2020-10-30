@@ -26,10 +26,10 @@ import matplotlib.pyplot as plt
 import time
 from copy import copy
 
-from nonogram import Nonogram, plot_nonogram
+from nonogram import Nonogram, plot_nonogram, update_nonogram_plot
 #from matcher import Match, find_match
 from matcher_nfa import Match, find_match
-from guesser import rank_guesses, rank_guesses2
+from guesser import rank_solved_neighbours, rank_guesses2
 
 
 class SolvingError(Exception):
@@ -160,6 +160,13 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
     # extract values from Nonogram object
     n_rows, n_cols = nonogram_.n_rows, nonogram_.n_cols
     runs_row, runs_col = nonogram_.runs_row, nonogram_.runs_col
+
+    # initialise plot
+    save, instruct, plot_progess =True, True, False # seriously slows down code
+    if plot_progess:
+        ax = plot_nonogram(grid, save=save, filename="solving_sweep_0", show_instructions=instruct, runs_row=runs_row, runs_col=runs_col)
+    else:
+        ax=None
     
     if rows_to_edit is None and columns_to_edit is None:
         # initialise
@@ -174,51 +181,59 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
         sweeps = 0  
 
     while columns_to_edit:
-        sweeps += 2 # for columns and rows
-        #constraint propagation
+        # constraint propagation
         for j in columns_to_edit:
             fix_col(j)
+        sweeps += 1
+        update_nonogram_plot(grid, ax=ax, save=save, filename="solving_sweep_{}".format(sweeps), plot_progess=plot_progess)
         columns_to_edit = set()
         for i in rows_to_edit:
             fix_row(i)
-        rows_to_edit = set()
+        sweeps += 1
+        update_nonogram_plot(grid, ax=ax, save=save, filename="solving_sweep_{}".format(sweeps), plot_progess=plot_progess)
     #print("\nconstraint propagation done in {} sweeps".format(sweeps))
 
     def probe(grid):
         """ solve every guess find the guess which makes the most progress on the next guess"""
-        rankings = rank_guesses(grid)
+        rankings = rank_solved_neighbours(grid)
         max_solve = 0
         guess = None
-        for rank, ij in rankings[:10]: # only probe the top 10
+        for rank, ij in rankings: # only probe the top 10
             i, j = ij
             for value in [BLACK, WHITE]:
                 grid_next = [row[:] for row in grid]
                 grid_next[i][j] = value
                 try:
                     grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False)
-                    progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
+                    progress = 1 - sum(row.count(EITHER) for row in grid_next)/(n_rows * n_cols)
                 except SolvingError:
                     progress = 0
-                    pass
-                if progress > max_solve:
+                    return i,j, [value ^ 3], rank, progress # the other value is definitely not a guess
+                if progress >= 1:
+                    return i,j, [value], rank, progress # solution found
+                elif progress > max_solve:
                     max_solve = progress
-                    guess = i,j, value, rank, progress
+                    guess = i,j, [BLACK, WHITE], rank, progress  # got stuck, either might be correct
         return guess
 
 
     if not nonogram_.is_complete(grid) and make_guess:
-        rankings = rank_guesses(grid) 
-        rank, ij = rankings[0]
-        i, j = ij
-        # make a guess
-        # guess =  probe(grid) 
-        # if guess is None: 
-        #     raise SolvingError("all guesses from this configuration are are wrong")
-        # i,j, value, rank, prog = guess
         progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
         print(nonogram_.guesses, "{:.5f}%".format(progress*100))
+
+        # rankings = rank_solved_neighbours(grid)
+        # rank, ij = rankings[0] # only make a guess with the highest ranked 
+        # i, j = ij
+        # values = [BLACK, WHITE]
+
+        guess =  probe(grid) 
+        if guess is None: 
+            raise SolvingError("all guesses from this configuration are are wrong")
+        i,j, values, rank, prog = guess
+
+        # make a guess
         nonogram_.guesses += 1 # only the first one is a guess, the second time we know it is right
-        for cell in [BLACK, WHITE]: 
+        for cell in values:
             grid_next = [row[:] for row in grid]
             grid_next[i][j] = cell
             try:
@@ -258,8 +273,8 @@ if __name__ == '__main__':
     #r_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
 
     # # aeroplane -> solve fast doesn't work. https://www.youtube.com/watch?v=MZQDDzzRBvI
-    #r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
-    #r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
+    r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
+    r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
 
     ## https://www.researchgate.net/publication/290264363_On_the_Difficulty_of_Nonograms
     ## Batenburg construction -> requires 120 sweeps
@@ -275,10 +290,7 @@ if __name__ == '__main__':
 
     puzzle = Nonogram(r_row, r_col)
 
-    ## set solution
-    #puzzle.set_grid(solution)
-
-    ## solve game
+    # solve game
     start_time = time.time()
     grid = solve_fast(puzzle, make_guess=True)
     puzzle.set_grid(grid)
