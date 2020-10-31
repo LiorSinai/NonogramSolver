@@ -88,7 +88,7 @@ if __name__ == '__main__':
     #file_name = "bear.txt"
 
     # the webpbn puzzles are super hard
-    #file_name = "webpbn-08098-Domino Logic III" +'.txt'
+    #file_name = "webpbn-01611-For  merilinnuke" +'.txt'
 
     file_name = 'puzzles/'+ file_name
     runs_row, runs_col, solution = decode(file_name)

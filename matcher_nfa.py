@@ -19,6 +19,8 @@ BLACK = 1   # = 01 in binary
 WHITE = 2   # = 10 in binary
 EITHER = 3  # = 11 in binary
 
+max_size_cache = 5000
+
 from match import Match, minimum_sequence, special_matches
 from functools import lru_cache
 
@@ -130,7 +132,7 @@ class NonDeterministicFiniteAutomation():
 
         return Match(pattern=self.pattern) # no match
 
-    @lru_cache(None)
+    @lru_cache(maxsize=max_size_cache) # Least Recently Used Cache
     def find_match(self, array, pattern):
         """ finds a minimum length, left-most match. Very fast, O(n*m) time """
         self.compile(pattern) # create the states first
@@ -212,7 +214,7 @@ if __name__ == '__main__':
     ]
 
     for arr, result in tests:
-        m = matcher(arr, runs)
+        m = matcher(tuple(arr), runs)
         print(m.match==result, m.match)
 
 
@@ -220,7 +222,7 @@ if __name__ == '__main__':
     s = "---#--         -      # " # broken segment
     sym_map = {"-": WHITE, "#": BLACK, " ": EITHER}
     reverse_map = {WHITE:"-", BLACK:"#", EITHER:"?"}
-    row = [sym_map[x] for x in s]
+    row = tuple([sym_map[x] for x in s])
     m = matcher(row, run)
     m = ''.join([reverse_map[x] for x in m.match])
     print(m == "---#--#-----------#####-", m)

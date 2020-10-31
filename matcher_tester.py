@@ -35,23 +35,24 @@ class TestMatcher(unittest.TestCase):
         ]
 
         for arr, result in tests:
+            arr = tuple(arr)
             m = self.matcher(arr, runs)
             self.assertEqual(m.match, result)
             
     def array_10_rightmost(self):
         runs = (3, 2, 1)
-        row = [3] * 10
+        row = (3, ) * 10
         m = self.matcher(row[::-1], runs[::-1])
         right_most =  [WHITE] *  2 + [BLACK]*3 + [WHITE] + [BLACK] * 2 + [WHITE] + [BLACK]*1 
         self.assertEqual(m.match[::-1], right_most)
 
-        row = [3, 3, 3, 3, 3, 3, 3, BLACK, 3, 3]
+        row = (3, 3, 3, 3, 3, 3, 3, BLACK, 3, 3)
         right_most = [WHITE] *  2 + [BLACK]*3 + [WHITE] + [BLACK] * 2 + [WHITE] + [BLACK]*1 
         self.assertEqual(m.match[::-1], right_most)
 
     def long_run(self):
             runs = (10,)
-            row = [WHITE] + [EITHER] + [BLACK] * 9 + [EITHER] + [WHITE] * 2
+            row = (WHITE,) + (EITHER,) + (BLACK, ) * 9 + (EITHER,) + (WHITE,) * 2
             left_most = [WHITE] +  [BLACK] * 10 +  [WHITE] * 3
             m = self.matcher(row, runs)
             self.assertEqual(m.match, left_most)
@@ -68,7 +69,7 @@ class TestMatcher(unittest.TestCase):
         sym_map = {"-": WHITE, "#": BLACK, " ": EITHER}
         reverse_map = {WHITE:"-", BLACK:"#", EITHER:"?"}
 
-        row = [sym_map[x] for x in s]
+        row = tuple(sym_map[x] for x in s)
 
         m = self.matcher(row, run).match
         m = ''.join([reverse_map[x] for x in m])
@@ -80,7 +81,7 @@ class TestMatcher(unittest.TestCase):
         
     def worst_case(self):
         pattern = (2, 5, 3, 2) 
-        row = [EITHER] * 19 + [BLACK] # lots of backtracking because last result is false
+        row = (EITHER,) * 19 + (BLACK,) # lots of backtracking because last result is false
         answer = [] 
         for p in pattern[:-1]:
             answer += [BLACK] * p + [WHITE]
@@ -91,11 +92,12 @@ class TestMatcher(unittest.TestCase):
     
     def very_long(self):
         pattern = (2, 4, 9, 7, 1, 1, 8, 8, 3)
-        row = [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 1, 1, 1, 1, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3]
+        row = (3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 3, 1, 1, 1, 1, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 3, 3, 3, 1, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 1, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3)
         ans = [1, 1, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 
         m = self.matcher(row, pattern).match
         self.assertEqual(m, ans)
+
 
 def suite():
     "Set order of tests in ascending order of complexity and code required"
@@ -108,7 +110,6 @@ def suite():
     suite.addTest(TestMatcher('worst_case'))
     suite.addTest(TestMatcher('very_long'))
     return suite
-
 
 
 if __name__ == '__main__':

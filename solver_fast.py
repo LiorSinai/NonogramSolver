@@ -34,7 +34,7 @@ from guesser import rank_solved_neighbours, rank_guesses2
 class SolvingError(Exception):
     pass
 
-def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False, NFA=None):
+def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False):
     "Solve using logic and constraint propagation. Might not work"
 
     # important: pass one Nonogram object around but a separate grid object is edited on each recursive call
@@ -98,8 +98,8 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
 
     def left_rightmost_overlap(arr, runs):
         """Returns the overlap between the left-most and right-most fitting sequences"""
-        left = NFA.find_match(arr, runs)
-        right = NFA.find_match(arr[::-1], runs[::-1])
+        left = nonogram_.NFA.find_match(arr, runs)
+        right = nonogram_.NFA.find_match(arr[::-1], runs[::-1])
         if left.is_match and right.is_match:
             allowed = overlap(left.match, right.match[::-1])
         else:
@@ -190,7 +190,8 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
             fix_row(i)
         sweeps += 1
         update_nonogram_plot(grid, ax=ax, save=save, filename="solving_sweep_{}".format(sweeps), plot_progess=plot_progess)
-    #print("\nconstraint propagation done in {} sweeps".format(sweeps))
+    if nonogram_.guesses == 0:
+        print("constraint propagation done in {} sweeps".format(sweeps))
 
     def probe(grid):
         """ solve every guess find the guess which makes the most progress on the next guess"""
@@ -203,7 +204,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
                 grid_next = [row[:] for row in grid]
                 grid_next[i][j] = value
                 try:
-                    grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False, NFA=NFA)
+                    grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False)
                     progress = 1 - sum(row.count(EITHER) for row in grid_next)/(n_rows * n_cols)
                 except SolvingError:
                     progress = 0
@@ -217,9 +218,6 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
 
 
     if not nonogram_.is_complete(grid) and make_guess:
-        progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
-        print(nonogram_.guesses, "{:.5f}%".format(progress*100))
-
         # rankings = rank_solved_neighbours(grid)
         # rank, ij = rankings[0] # only make a guess with the highest ranked 
         # i, j = ij
@@ -230,26 +228,35 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
             raise SolvingError("all guesses from this configuration are are wrong")
         i,j, values, rank, prog = guess
 
+        progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
+        is_guess = " guess" if len(values) > 1 else ""
+        print(nonogram_.guesses, "{:.5f}%".format(progress*100), is_guess)
+
         # make a guess
         nonogram_.guesses += 1 # only the first one is a guess, the second time we know it is right
         for cell in values:
             grid_next = [row[:] for row in grid]
             grid_next[i][j] = cell
             try:
-                grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True, NFA=NFA)
+                grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True)
                 if nonogram_.is_complete(grid_next):
                     grid = grid_next
                     break   
             except SolvingError:
                 pass
-                 
+
     return grid
 
 def solve_fast(nonogram_, make_guess=False):
     grid = [row[:] for row in nonogram_.grid]
     print("solving ...")
-    NFA = NonDeterministicFiniteAutomation()
-    grid = solve_fast_(grid, nonogram_, make_guess=make_guess, NFA=NFA)
+    nonogram_.NFA = NonDeterministicFiniteAutomation()
+    grid = solve_fast_(grid, nonogram_, make_guess=make_guess)
+
+    # print LRU cache info
+    hits = nonogram_.NFA.find_match.cache_info().hits
+    misses = nonogram_.NFA.find_match.cache_info().misses
+    print("Cache: hits/misses={:.2f}".format(hits/misses), nonogram_.NFA.find_match.cache_info())
 
     return grid
 
@@ -301,6 +308,7 @@ if __name__ == '__main__':
     print(puzzle.is_complete(), "{:.2f}%".format(puzzle.progress*100))
     print("time taken: {:.5f}s".format(end_time - start_time))
     print("solved with {} guesses".format(puzzle.guesses))
+    print("")
 
     plot_nonogram(puzzle.grid, show_instructions=True, save=False, runs_row=r_row, runs_col=r_col)
 
@@ -321,6 +329,7 @@ if __name__ == '__main__':
                 puzzle.set_grid(grid)
                 puzzle.show_grid(show_instructions=False, to_file=False, symbols="x#.?")
                 print(puzzle.is_complete(), "{:.2f}%%".format(puzzle.progress*100))
+                print("")
 
                 plot_nonogram(puzzle.grid, show_instructions=True, save=False, runs_row=r_row, runs_col=r_col)
 
