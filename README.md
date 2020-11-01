@@ -1,6 +1,6 @@
-# Nonogram Solver - C++
+# Nonogram Solver - Python
 
-A Nonogram solver in Python. See the Wikipeida [article][nonogram_wiki].
+A nonogram solver in Python. See the Wikipeida [article][nonogram_wiki].
 
 [nonogram_wiki]: https://en.wikipedia.org/wiki/Nonogram 
 
