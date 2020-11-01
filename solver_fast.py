@@ -34,8 +34,11 @@ from guesser import rank_solved_neighbours, rank_guesses2
 class SolvingError(Exception):
     pass
 
-def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False):
-    "Solve using logic and constraint propagation. Might not work"
+
+def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_guess=False, depth=0, depth_max=None):
+    "Solve using logic and constraint propagation. Resort to guessing if this doesn't work"
+    if depth_max is not None and depth > depth_max:
+        raise SolvingError("maximum recursion depth reached")
 
     # important: pass one Nonogram object around but a separate grid object is edited on each recursive call
 
@@ -179,73 +182,82 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
     else:
         sweeps = 0  
 
-    while columns_to_edit:
+    while not nonogram_.is_complete(grid):
         # constraint propagation
-        for j in columns_to_edit:
-            fix_col(j)
-        sweeps += 1
-        update_nonogram_plot(grid, ax=ax, save=save, filename="solving_sweep_{}".format(sweeps), plot_progess=plot_progess)
-        columns_to_edit = set()
-        for i in rows_to_edit:
-            fix_row(i)
-        sweeps += 1
-        update_nonogram_plot(grid, ax=ax, save=save, filename="solving_sweep_{}".format(sweeps), plot_progess=plot_progess)
-    if nonogram_.guesses == 0:
-        print("constraint propagation done in {} sweeps".format(sweeps))
+        while columns_to_edit:
+            for j in columns_to_edit:
+                fix_col(j)
+            sweeps += 1
+            update_nonogram_plot(grid, ax=ax, save=save, filename="solving_sweep_{}".format(sweeps), plot_progess=plot_progess)
+            columns_to_edit = set()
+            for i in rows_to_edit:
+                fix_row(i)
+            sweeps += 1
+            update_nonogram_plot(grid, ax=ax, save=save, filename="solving_sweep_{}".format(sweeps), plot_progess=plot_progess)
+        if nonogram_.guesses == 0:
+            print("constraint propagation done in {} sweeps".format(sweeps))
+        if not make_guess:
+            break
+        
+        # guessing
+        if not nonogram_.is_complete(grid) and make_guess:
+            nonogram_.guesses += 1 # only the first one is a guess, the second time we know it is right
+            progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
 
-    def probe(grid):
-        """ solve every guess find the guess which makes the most progress on the next guess"""
-        rankings = rank_solved_neighbours(grid)
-        max_solve = 0
-        guess = None
-        for rank, ij in rankings: # only probe the top 10
-            i, j = ij
-            for value in [BLACK, WHITE]:
-                grid_next = [row[:] for row in grid]
-                grid_next[i][j] = value
-                try:
-                    grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False)
-                    progress = 1 - sum(row.count(EITHER) for row in grid_next)/(n_rows * n_cols)
-                except SolvingError:
-                    progress = 0
-                    return i,j, [value ^ 3], rank, progress # the other value is definitely not a guess
-                if progress >= 1:
-                    return i,j, [value], rank, progress # solution found
-                elif progress > max_solve:
-                    max_solve = progress
-                    guess = i,j, [BLACK, WHITE], rank, progress  # got stuck, either might be correct
-        return guess
+            guess =  probe(grid, nonogram_) 
+            if guess is None: 
+                raise SolvingError("all guesses from this configuration are are wrong")
+            i,j, values, rank, prog = guess
 
-
-    if not nonogram_.is_complete(grid) and make_guess:
-        # rankings = rank_solved_neighbours(grid)
-        # rank, ij = rankings[0] # only make a guess with the highest ranked 
-        # i, j = ij
-        # values = [BLACK, WHITE]
-
-        guess =  probe(grid) 
-        if guess is None: 
-            raise SolvingError("all guesses from this configuration are are wrong")
-        i,j, values, rank, prog = guess
-
-        progress = 1 - sum(row.count(EITHER) for row in grid)/(n_rows * n_cols)
-        is_guess = " guess" if len(values) > 1 else ""
-        print(nonogram_.guesses, "{:.5f}%".format(progress*100), is_guess)
-
-        # make a guess
-        nonogram_.guesses += 1 # only the first one is a guess, the second time we know it is right
-        for cell in values:
-            grid_next = [row[:] for row in grid]
-            grid_next[i][j] = cell
-            try:
-                grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True)
-                if nonogram_.is_complete(grid_next):
-                    grid = grid_next
-                    break   
-            except SolvingError:
-                pass
-
+            if len(values) == 1:
+                grid[i][j] = values[0]
+                rows_to_edit = {i}
+                columns_to_edit = {j}
+                print("{} {:.5f}%".format(nonogram_.guesses-1, progress*100)) 
+                # try constraint propation again
+            else: # make a guess
+                print("{} {:.5f}% guess {:d}".format(nonogram_.guesses-1, progress*100, depth + 1))
+                for cell in values:
+                    grid_next = [row[:] for row in grid]
+                    grid_next[i][j] = cell
+                    try:
+                        grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True, depth=depth+1)
+                        if nonogram_.is_complete(grid_next):
+                            grid = grid_next
+                            break   
+                    except SolvingError:
+                        pass
+                return grid # all search paths exhausted
+            
     return grid
+
+
+def probe(grid, nonogram_):
+    """ solve every guess find the guess which makes the most progress on the next guess"""
+    # extract values from Nonogram object
+    n_rows, n_cols = nonogram_.n_rows, nonogram_.n_cols
+
+    rankings = rank_solved_neighbours(grid)
+    max_solve = 0
+    guess = None
+    for rank, ij in rankings:
+        i, j = ij
+        for value in [BLACK, WHITE]:
+            grid_next = [row[:] for row in grid]
+            grid_next[i][j] = value
+            try:
+                grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=False)
+                progress = 1 - sum(row.count(EITHER) for row in grid_next)/(n_rows * n_cols)
+            except SolvingError:
+                progress = 0
+                return i,j, [value ^ 3], rank, progress # the other value is definitely not a guess
+            if progress >= 1:
+                return i,j, [value], rank, progress # solution found
+            elif progress > max_solve:
+                max_solve = progress
+                guess = i,j, [BLACK, WHITE], rank, progress  # got stuck, either might be correct
+    return guess
+
 
 def solve_fast(nonogram_, make_guess=False):
     grid = [row[:] for row in nonogram_.grid]

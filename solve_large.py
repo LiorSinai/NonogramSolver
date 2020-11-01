@@ -81,7 +81,7 @@ def decode_solution(solution, n_rows, n_cols):
 
 if __name__ == '__main__':
     #file_name = "lost.txt"
-    file_name = "beach.txt" # takes 343 guess
+    file_name = "beach.txt" 
     #file_name = "artist.txt" # faster with match_forwards than match backwards. NFA is of course the fastest
     #file_name = "balance.txt"
     #file_name = "warship.txt"

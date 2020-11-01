@@ -155,7 +155,7 @@ class Nonogram():
         try:
             idx = arr.index(EITHER) # make sure there are no gaps
             sequence, _ = self._get_sequence(arr[:idx])
-            return all([x == y for x, y in zip(sequence, target)])
+            return all([x <= y for x, y in zip(sequence, target)])
         except ValueError:
             return True # not sure if valid or not so return
 
