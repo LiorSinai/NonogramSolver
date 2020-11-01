@@ -266,13 +266,13 @@ if __name__ == '__main__':
 
     plot_nonogram(puzzle.grid)
 
-    if 1==0:
+    if 1==1:
         start_time = time.time()
         #filename = 'rosetta_code_puzzles.txt'
         filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 
         with open(filename) as file:
             lines = file.read().split("\n")
-            for i in range(0, len(lines), 3):
+            for i in range(1, len(lines), 3):
                 s = lines[i + 1].strip().split(" ")
                 r_row = [tuple(ord(c) - ord('A') + 1 for c in run) for run in s]
                 s = lines[i + 2].strip().split(" ")

@@ -223,8 +223,7 @@ def solve_fast_(grid, nonogram_, rows_to_edit=None, columns_to_edit=None, make_g
                     try:
                         grid_next = solve_fast_(grid_next, nonogram_, {i}, {j}, make_guess=True, depth=depth+1)
                         if nonogram_.is_complete(grid_next):
-                            grid = grid_next
-                            break   
+                            return grid_next
                     except SolvingError:
                         pass
                 return grid # all search paths exhausted
@@ -291,7 +290,7 @@ if __name__ == '__main__':
     #r_row = [(3,),(1,),(1,),(1,1),(1,),(1,1,4,1),(2,1,1,1,4),(1,1,1,1,1,1),(1,1,1,1,1),(2,1,1,1,1),(1,4,2,1,1,1),(1,3,1,4,1)]
     #r_col = [(0,),(1,1,1),(1,5),(7,1),(1,),(2,),(1,),(1,),(1,),(0,),(2,),(1,6),(0,),(6,),(1,1),(1,1),(1,1),(6,),(0,),(1,),(7,),(1,),(1,),(1,),(0,)]
 
-    # # aeroplane -> solve fast doesn't work. https://www.youtube.com/watch?v=MZQDDzzRBvI
+    # # aeroplane -> solve fast doesn't work without guessing. https://www.youtube.com/watch?v=MZQDDzzRBvI
     r_col = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,2,1],[3,3],[3,4],[2,1,2]]
     r_row = [[2,2],[3,4],[3,6],[3,7],[3,5],[3,3],[1,4],[2,3],[8],[4,3],[4,6],[4,4],[3,1,2],[3,2,2],[2,1,1]]
 
@@ -330,7 +329,7 @@ if __name__ == '__main__':
         filename = "activity_workshop_puzzles.txt"  ##  https://activityworkshop.net/puzzlesgames/nonograms 
         with open(filename) as file:
             lines = file.read().split("\n")
-            for i in range(0, len(lines), 3):
+            for i in range(1, len(lines), 3):
                 s = lines[i + 1].strip().split(" ")
                 r_row = [tuple(ord(c) - ord('A') + 1 for c in run) for run in s]
                 s = lines[i + 2].strip().split(" ")
